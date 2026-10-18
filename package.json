@@ -1,0 +1,19 @@
+{
+  "name": "switea-master",
+  "version": "1.0.0",
+  "description": "Switea Nature Cafe - Full Restaurant Website, Digital QR Menu, Admin & Super Admin System",
+  "private": true,
+  "scripts": {
+    "install:all": "cd backend && npm.cmd install && cd ../frontend && npm.cmd install",
+    "dev:backend": "cd backend && npm.cmd run dev",
+    "dev:frontend": "cd frontend && npm.cmd run dev",
+    "db:push": "cd backend && npm.cmd run db:push",
+    "db:seed": "cd backend && npm.cmd run db:seed",
+    "build:backend": "cd backend && npm.cmd run build",
+    "build:frontend": "cd frontend && npm.cmd run build",
+    "test:backend": "cd backend && npm.cmd test"
+  },
+  "keywords": ["restaurant", "qr-menu", "switea", "pos", "table-ordering", "cafe"],
+  "author": "Antigravity Engineering",
+  "license": "UNLICENSED"
+}

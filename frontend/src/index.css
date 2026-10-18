@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, .font-serif {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+/* Custom Nature Cafe utilities */
+.bg-pattern-leaves {
+  background-color: #FAF8F5;
+  background-image: radial-gradient(#CADBCA 0.75px, transparent 0.75px), radial-gradient(#CADBCA 0.75px, #FAF8F5 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+}
+
+.glass-nature {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(202, 219, 202, 0.4);
+}
+
+.glass-dark {
+  background: rgba(26, 60, 43, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Print Styles for Reports and Table Tent QR Sheets */
+@media print {
+  /* Hide navigation, sidebars, buttons, and interactive controls */
+  nav,
+  aside,
+  header,
+  .no-print,
+  button,
+  .print-hidden {
+    display: none !important;
+  }
+
+  body,
+  html,
+  #root,
+  main {
+    background: #FFFFFF !important;
+    color: #1c1917 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    position: static !important;
+  }
+
+  .printable-area {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 1.5rem !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Prevent page breaks inside cards & tables */
+  .print-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #e7e5e4 !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure graph colors & backgrounds render in PDF print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

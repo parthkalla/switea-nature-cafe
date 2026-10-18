@@ -1,0 +1,421 @@
+// Prisma Schema for Switea Nature Cafe
+// Multi-tenant restaurant management, digital QR menu, and super-admin platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  role          String   @default("STAFF") // SUPER_ADMIN, OWNER, MANAGER, STAFF, KITCHEN
+  status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, INVITED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  memberships   RestaurantMembership[]
+  auditLogs     AuditLog[]
+}
+
+model Restaurant {
+  id                 String   @id @default(uuid())
+  name               String
+  slug               String   @unique
+  description        String?
+  tagLine            String?  @default("A Sip of Sweetness")
+  logo               String?
+  coverImage         String?
+  address            String
+  city               String   @default("Jaipur")
+  state              String   @default("Rajasthan")
+  postalCode         String   @default("302021")
+  phone              String
+  email              String
+  mapLink            String?
+  whatsappNumber     String?
+  openingHours       String   @default("10:00 AM - 11:00 PM")
+  currency           String   @default("INR")
+  currencySymbol     String   @default("₹")
+  timezone           String   @default("Asia/Kolkata")
+  taxPercent         Float    @default(5.0)
+  isOrderingEnabled  Boolean  @default(true)
+  isPayAtCounterOnly Boolean  @default(false)
+  isOpen             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  memberships        RestaurantMembership[]
+  landingContent     LandingPageContent?
+  galleryImages      GalleryImage[]
+  categories         MenuCategory[]
+  menuItems          MenuItem[]
+  tables             Table[]
+  orders             Order[]
+  discounts          Discount[]
+  reviews            Review[]
+  subscriptions      Subscription[]
+  auditLogs          AuditLog[]
+}
+
+model RestaurantMembership {
+  id           String     @id @default(uuid())
+  userId       String
+  restaurantId String
+  role         String     @default("STAFF") // OWNER, MANAGER, STAFF, KITCHEN
+  createdAt    DateTime   @default(now())
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+}
+
+model LandingPageContent {
+  id                 String     @id @default(uuid())
+  restaurantId       String     @unique
+  heroTitle          String     @default("Switea Nature Cafe")
+  heroSubtitle       String     @default("A serene garden escape serving handcrafted kulhad teas, artisan coffees & delectable bites in the heart of Jaipur.")
+  heroCtaText        String     @default("Explore Digital Menu")
+  heroImage          String?
+  aboutTitle         String     @default("Nature, Calm & Freshly Brewed Joy")
+  aboutText          String     @default("Nestled amidst lush greenery in Jaipur, Switea Nature Cafe was founded on a simple vision: to bring people together over steaming cups of pure, traditional chai and delicious comfort food in an earthy, open-air ambience.")
+  aboutHighlight1    String     @default("Authentic Kulhad Chai & Teas")
+  aboutHighlight2    String     @default("Garden & Nature Ambience")
+  aboutHighlight3    String     @default("Fresh, Made-to-Order Delights")
+  aboutImage         String?
+  announcementText   String?    @default("Welcome to Switea! Enjoy 10% off on your first table order with code NATURE10")
+  announcementActive Boolean    @default(true)
+  instagramUrl       String?    @default("https://instagram.com/switeacafe")
+  facebookUrl        String?
+  mapEmbedUrl        String?
+  metaTitle          String     @default("Switea Nature Cafe | Best Garden Cafe & Chai in Jaipur")
+  metaDescription    String     @default("Visit Switea Nature Cafe in Jaipur for signature kulhad chai, hand-crafted coffees, delicious burgers, pizzas and serene greenery.")
+  isPublished        Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  restaurant         Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model GalleryImage {
+  id           String     @id @default(uuid())
+  restaurantId String
+  title        String
+  imageUrl     String
+  displayOrder Int        @default(0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model MenuCategory {
+  id           String     @id @default(uuid())
+  restaurantId String
+  name         String
+  slug         String
+  description  String?
+  image        String?
+  displayOrder Int        @default(0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items        MenuItem[]
+
+  @@unique([restaurantId, slug])
+}
+
+model MenuItem {
+  id              String         @id @default(uuid())
+  restaurantId    String
+  categoryId      String
+  name            String
+  slug            String
+  description     String?
+  price           Float
+  isVeg           Boolean        @default(true)
+  isBestseller    Boolean        @default(false)
+  isSpecial       Boolean        @default(false)
+  isAvailable     Boolean        @default(true)
+  image           String?
+  prepTimeMinutes Int            @default(15)
+  displayOrder    Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  restaurant      Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category        MenuCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants        ItemVariant[]
+  modifierGroups  ModifierGroup[]
+  orderItems      OrderItem[]
+
+  @@unique([restaurantId, slug])
+}
+
+model ItemVariant {
+  id         String   @id @default(uuid())
+  menuItemId String
+  name       String   // e.g. Regular, Large, Kulhad, Clay Pot
+  price      Float
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+}
+
+model ModifierGroup {
+  id         String           @id @default(uuid())
+  menuItemId String
+  name       String           // e.g. "Choose Sugar Level", "Add Extra Cheese"
+  minSelect  Int              @default(0)
+  maxSelect  Int              @default(1)
+  isRequired Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  menuItem   MenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  options    ModifierOption[]
+}
+
+model ModifierOption {
+  id              String         @id @default(uuid())
+  modifierGroupId String
+  name            String         // e.g. "Less Sugar", "Extra Dip", "Peri Peri Seasoning"
+  price           Float          @default(0.0)
+  isDefault       Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+
+  modifierGroup   ModifierGroup  @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  orderItemModifiers OrderItemModifier[]
+}
+
+model Table {
+  id           String        @id @default(uuid())
+  restaurantId String
+  tableNumber  String        // e.g. "Table 01", "T-02"
+  name         String        // e.g. "Garden Table 01", "Outdoor Cabana"
+  capacity     Int           @default(4)
+  section      String        @default("Garden Area") // Garden Area, Indoor Lounge, Rooftop
+  isActive     Boolean       @default(true)
+  isArchived   Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  qrCode       TableQRCode?
+  sessions     DiningSession[]
+  orders       Order[]
+
+  @@unique([restaurantId, tableNumber])
+}
+
+model TableQRCode {
+  id            String         @id @default(uuid())
+  tableId       String         @unique
+  token         String         @unique // unguessable secure token e.g. sw-tbl-4981ad09...
+  qrImageUrl    String?
+  scanCount     Int            @default(0)
+  lastScannedAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  table         Table          @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  scanEvents    QRScanEvent[]
+}
+
+model DiningSession {
+  id            String    @id @default(uuid())
+  tableId       String
+  sessionToken  String    @unique
+  status        String    @default("ACTIVE") // ACTIVE, CLOSED
+  customerName  String?
+  customerPhone String?
+  startedAt     DateTime  @default(now())
+  closedAt      DateTime?
+
+  table         Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  orders        Order[]
+}
+
+model QRScanEvent {
+  id            String      @id @default(uuid())
+  tableQRCodeId String
+  ipAddress     String?
+  userAgent     String?
+  deviceType    String?     @default("MOBILE")
+  scannedAt     DateTime    @default(now())
+
+  qrCode        TableQRCode @relation(fields: [tableQRCodeId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id               String          @id @default(uuid())
+  orderNumber      String          // e.g. SW-1001
+  orderToken       String          @unique // Secure public token for customer tracking
+  restaurantId     String
+  tableId          String?
+  diningSessionId  String?
+  orderType        String          @default("DINE_IN") // DINE_IN, TAKEAWAY, DELIVERY
+  customerName     String?
+  customerPhone    String?
+  notes            String?
+  subtotal         Float
+  taxAmount        Float
+  discountAmount   Float           @default(0.0)
+  totalAmount      Float
+  status           String          @default("PENDING") // PENDING, ACCEPTED, PREPARING, READY, SERVED, CANCELLED
+  paymentStatus    String          @default("PENDING") // PENDING, PAID, FAILED, REFUNDED
+  paymentMethod    String          @default("CASH") // CASH, PAY_AT_COUNTER, UPI, RAZORPAY
+  rejectionReason  String?
+  estimatedPrepTime Int?           @default(20)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  restaurant       Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table            Table?          @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  diningSession    DiningSession?  @relation(fields: [diningSessionId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
+  payments         Payment[]
+  redemptions      DiscountRedemption[]
+}
+
+model OrderItem {
+  id         String              @id @default(uuid())
+  orderId    String
+  menuItemId String?
+  itemName   String
+  unitPrice  Float
+  quantity   Int
+  totalPrice Float
+  notes      String?
+
+  order      Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem?           @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  modifiers  OrderItemModifier[]
+}
+
+model OrderItemModifier {
+  id               String          @id @default(uuid())
+  orderItemId      String
+  modifierOptionId String?
+  modifierName     String
+  price            Float           @default(0.0)
+
+  orderItem        OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  modifierOption   ModifierOption? @relation(fields: [modifierOptionId], references: [id], onDelete: SetNull)
+}
+
+model Payment {
+  id                String    @id @default(uuid())
+  orderId           String
+  amount            Float
+  currency          String    @default("INR")
+  method            String    // CASH, UPI, RAZORPAY, COUNTER
+  status            String    @default("PENDING") // PENDING, SUCCESS, FAILED, REFUNDED
+  transactionId     String?
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  verifiedAt        DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Discount {
+  id             String               @id @default(uuid())
+  restaurantId   String
+  code           String
+  discountType   String               @default("PERCENTAGE") // PERCENTAGE, FIXED
+  value          Float
+  minOrderAmount Float                @default(0.0)
+  maxDiscount    Float?
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  usageLimit     Int?
+  timesUsed      Int                  @default(0)
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+
+  restaurant     Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  redemptions    DiscountRedemption[]
+
+  @@unique([restaurantId, code])
+}
+
+model DiscountRedemption {
+  id         String   @id @default(uuid())
+  discountId String
+  orderId    String
+  amount     Float
+  redeemedAt DateTime @default(now())
+
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id           String     @id @default(uuid())
+  restaurantId String
+  customerName String
+  rating       Int        @default(5)
+  comment      String
+  isApproved   Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPlan {
+  id              String         @id @default(uuid())
+  name            String         // Starter, Pro, Enterprise
+  slug            String         @unique
+  price           Float
+  billingInterval String         @default("MONTHLY") // MONTHLY, YEARLY
+  maxTables       Int            @default(20)
+  maxItems        Int            @default(150)
+  features        String         // JSON-string of feature flags
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                 String           @id @default(uuid())
+  restaurantId       String
+  planId             String
+  status             String           @default("ACTIVE") // ACTIVE, TRIAL, PAST_DUE, CANCELLED
+  currentPeriodStart DateTime         @default(now())
+  currentPeriodEnd   DateTime
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  restaurant         Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan               SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  userId       String?
+  restaurantId String?
+  action       String      // e.g. LOGIN, UPDATE_MENU, REVOKE_QR, STATUS_CHANGE
+  entityType   String      // MenuItem, Table, Order, etc.
+  entityId     String?
+  details      String?     // JSON description of payload or change
+  ipAddress    String?
+  createdAt    DateTime    @default(now())
+
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+}
