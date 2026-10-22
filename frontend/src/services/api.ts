@@ -271,6 +271,16 @@ export const api = {
     return res.json();
   },
 
+  async updateOrderPaymentStatus(id: string, paymentStatus: 'PAID' | 'PENDING' | 'FAILED' | 'REFUNDED') {
+    const res = await fetch(`${API_BASE}/admin/orders/${id}/payment`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ paymentStatus }),
+    });
+    if (!res.ok) throw new Error('Failed to update payment status');
+    return res.json();
+  },
+
   async getKitchenQueue() {
     const res = await fetch(`${API_BASE}/admin/kitchen`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch kitchen queue');

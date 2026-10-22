@@ -78,6 +78,18 @@ export const AdminOrders: React.FC = () => {
     }
   };
 
+  const handleUpdatePaymentStatus = async (orderId: string, newPaymentStatus: 'PAID' | 'PENDING') => {
+    try {
+      await api.updateOrderPaymentStatus(orderId, newPaymentStatus);
+      fetchOrders();
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, paymentStatus: newPaymentStatus } : null));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Payment status update failed.');
+    }
+  };
+
   const getNextStatusAction = (currentStatus: string) => {
     switch (currentStatus) {
       case 'PENDING':
@@ -167,7 +179,7 @@ export const AdminOrders: React.FC = () => {
                     className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-stone-50/70 transition-colors"
                   >
                     <div className="space-y-1">
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         <strong className="font-serif text-base text-stone-900">
                           #{ord.orderNumber}
                         </strong>
@@ -185,19 +197,63 @@ export const AdminOrders: React.FC = () => {
                         >
                           {ord.status}
                         </span>
+                        {/* Payment Status Pill */}
+                        <span
+                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                            ord.paymentStatus === 'PAID'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : 'bg-amber-100 text-amber-900 border border-amber-300'
+                          }`}
+                        >
+                          {ord.paymentStatus === 'PAID' ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>PAID</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3 h-3 text-amber-700" />
+                              <span>PAYMENT PENDING</span>
+                            </>
+                          )}
+                        </span>
                       </div>
 
                       <div className="text-xs text-stone-500 flex flex-wrap gap-x-4 gap-y-1">
                         <span>Items: <strong className="text-stone-800">{ord.items?.map((i) => `${i.quantity}x ${i.itemName}`).join(', ')}</strong></span>
-                        <span>• Payment: <strong className="text-stone-800">{ord.paymentMethod}</strong></span>
+                        <span>
+                          • Payment: <strong className="text-stone-800">
+                            {ord.paymentMethod === 'PAY_AT_COUNTER' || ord.paymentMethod === 'CASH'
+                              ? 'Pay at Counter'
+                              : ord.paymentMethod}
+                          </strong>
+                          {ord.customerName ? ` (${ord.customerName})` : ''}
+                        </span>
                         <span>• Placed: {new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 self-end md:self-auto">
+                    <div className="flex flex-wrap items-center gap-2.5 self-end md:self-auto">
                       <span className="font-serif text-lg font-bold text-stone-900 mr-2">
                         ₹{ord.totalAmount}
                       </span>
+
+                      {/* Payment Action Button */}
+                      {ord.paymentStatus !== 'PAID' ? (
+                        <button
+                          onClick={() => handleUpdatePaymentStatus(ord.id, 'PAID')}
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                          title="Confirm payment received at billing counter"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Mark Paid</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-xl flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Paid</span>
+                        </span>
+                      )}
 
                       {nextAction && (
                         <button
@@ -278,6 +334,45 @@ export const AdminOrders: React.FC = () => {
                 <div className="pt-3 border-t border-stone-200 flex justify-between text-sm font-extrabold text-stone-900">
                   <span>Total Amount</span>
                   <span>₹{selectedOrder.totalAmount}</span>
+                </div>
+
+                {/* Payment Management in Modal */}
+                <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-stone-400 text-[10px] uppercase font-bold block">Payment Status & Method</span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <strong className="text-stone-800">
+                        {selectedOrder.paymentMethod === 'PAY_AT_COUNTER' || selectedOrder.paymentMethod === 'CASH'
+                          ? 'Pay at Counter (Cash/Card)'
+                          : selectedOrder.paymentMethod}
+                      </strong>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          selectedOrder.paymentStatus === 'PAID'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800 border border-amber-300'
+                        }`}
+                      >
+                        {selectedOrder.paymentStatus === 'PAID' ? 'PAID' : 'PAYMENT PENDING'}
+                      </span>
+                    </div>
+                  </div>
+                  {selectedOrder.paymentStatus !== 'PAID' ? (
+                    <button
+                      onClick={() => handleUpdatePaymentStatus(selectedOrder.id, 'PAID')}
+                      className="bg-emerald-700 hover:bg-emerald-800 text-white px-3.5 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm text-xs"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Mark as Paid</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleUpdatePaymentStatus(selectedOrder.id, 'PENDING')}
+                      className="text-stone-500 hover:text-amber-700 text-[11px] underline"
+                    >
+                      Mark Unpaid
+                    </button>
+                  )}
                 </div>
               </div>
 

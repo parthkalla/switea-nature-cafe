@@ -18,6 +18,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Check,
+  Store,
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
@@ -217,6 +218,64 @@ export const OrderStatusPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Pay at Counter Card */}
+        {(order.paymentMethod === 'PAY_AT_COUNTER' || order.paymentMethod === 'CASH') && (
+          <div className="bg-white rounded-3xl border border-stone-200 shadow-card p-6 sm:p-8 mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                    order.paymentStatus === 'PAID'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  <Store className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs uppercase font-bold tracking-wider text-stone-500">
+                      Payment Mode
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                        order.paymentStatus === 'PAID'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-amber-100 text-amber-900 border border-amber-300'
+                      }`}
+                    >
+                      {order.paymentStatus === 'PAID' ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>PAID AT COUNTER</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3 h-3 text-amber-700" />
+                          <span>PAYMENT DUE AT COUNTER</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <h3 className="font-serif text-xl font-bold text-stone-900">
+                    Pay at Billing Counter (Cash / Card)
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-1 max-w-md">
+                    {order.paymentStatus === 'PAID'
+                      ? `Payment of ₹${order.totalAmount.toFixed(2)} has been confirmed & received by cafe cashier.`
+                      : `Please settle ₹${order.totalAmount.toFixed(2)} at the billing counter. Staff will mark this order as paid.`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right sm:border-l sm:border-stone-100 sm:pl-6 w-full sm:w-auto flex sm:flex-col justify-between items-center sm:items-end">
+                <span className="text-xs text-stone-400 block">Total Due</span>
+                <span className="font-serif text-2xl font-bold text-nature-950">₹{order.totalAmount.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Dynamic UPI Payment Card (Amount Locked & Verified) */}
         {order.paymentMethod === 'UPI' && (
           <div className="bg-white rounded-3xl border-2 border-emerald-600/30 shadow-card p-6 sm:p-8 mb-8 overflow-hidden relative">
@@ -335,7 +394,9 @@ export const OrderStatusPage: React.FC = () => {
           <h2 className="font-serif font-bold text-lg text-stone-900 pb-3 border-b border-stone-100 flex items-center justify-between">
             <span>Ordered Items</span>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-normal text-stone-500">Method: {order.paymentMethod}</span>
+              <span className="text-xs font-normal text-stone-500">
+                Method: {order.paymentMethod === 'PAY_AT_COUNTER' || order.paymentMethod === 'CASH' ? 'Pay at Counter' : order.paymentMethod}
+              </span>
               <span
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                   order.paymentStatus === 'PAID'

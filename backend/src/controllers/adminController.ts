@@ -763,8 +763,76 @@ export async function updateOrderStatus(req: Request, res: Response) {
     const { status, rejectionReason, paymentStatus } = req.body;
 
     const validStatuses = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED'];
-    if (!validStatuses.includes(status)) {
+    if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status transition.' });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { table: true },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const dataToUpdate: any = {};
+    if (status) dataToUpdate.status = status;
+    if (rejectionReason !== undefined) dataToUpdate.rejectionReason = rejectionReason ? String(rejectionReason) : null;
+    if (paymentStatus) {
+      const validPaymentStatuses = ['PAID', 'PENDING', 'FAILED', 'REFUNDED'];
+      if (!validPaymentStatuses.includes(paymentStatus)) {
+        return res.status(400).json({ error: 'Invalid payment status.' });
+      }
+      dataToUpdate.paymentStatus = paymentStatus;
+    }
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: dataToUpdate,
+      include: {
+        table: true,
+        items: { include: { modifiers: true } },
+      },
+    });
+
+    // If marked PAID, create payment record if not exists
+    if (paymentStatus === 'PAID') {
+      const existingPayment = await prisma.payment.findFirst({
+        where: { orderId: order.id, status: 'PAID' },
+      });
+      if (!existingPayment) {
+        await prisma.payment.create({
+          data: {
+            restaurantId: order.restaurantId,
+            orderId: order.id,
+            amount: order.totalAmount,
+            method: order.paymentMethod,
+            status: 'PAID',
+            gatewayPaymentId: `COUNTER_${Date.now()}`,
+          },
+        });
+      }
+    }
+
+    // Realtime notification
+    emitOrderStatusUpdated(updated.restaurantId, updated.orderToken, updated.status, updated);
+
+    return res.json({ success: true, order: updated });
+  } catch (err: any) {
+    console.error('updateOrderStatus error:', err);
+    return res.status(500).json({ error: 'Failed to update order status.' });
+  }
+}
+
+export async function updateOrderPaymentStatus(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { paymentStatus } = req.body;
+
+    const validPaymentStatuses = ['PAID', 'PENDING', 'FAILED', 'REFUNDED'];
+    if (!validPaymentStatuses.includes(paymentStatus)) {
+      return res.status(400).json({ error: 'Invalid payment status.' });
     }
 
     const order = await prisma.order.findUnique({
@@ -778,24 +846,38 @@ export async function updateOrderStatus(req: Request, res: Response) {
 
     const updated = await prisma.order.update({
       where: { id },
-      data: {
-        status,
-        rejectionReason: rejectionReason ? String(rejectionReason) : undefined,
-        paymentStatus: paymentStatus ? String(paymentStatus) : undefined,
-      },
+      data: { paymentStatus },
       include: {
         table: true,
         items: { include: { modifiers: true } },
       },
     });
 
+    if (paymentStatus === 'PAID') {
+      const existingPayment = await prisma.payment.findFirst({
+        where: { orderId: order.id, status: 'PAID' },
+      });
+      if (!existingPayment) {
+        await prisma.payment.create({
+          data: {
+            restaurantId: order.restaurantId,
+            orderId: order.id,
+            amount: order.totalAmount,
+            method: order.paymentMethod,
+            status: 'PAID',
+            gatewayPaymentId: `COUNTER_${Date.now()}`,
+          },
+        });
+      }
+    }
+
     // Realtime notification
-    emitOrderStatusUpdated(updated.restaurantId, updated.orderToken, status, updated);
+    emitOrderStatusUpdated(updated.restaurantId, updated.orderToken, updated.status, updated);
 
     return res.json({ success: true, order: updated });
   } catch (err: any) {
-    console.error('updateOrderStatus error:', err);
-    return res.status(500).json({ error: 'Failed to update order status.' });
+    console.error('updateOrderPaymentStatus error:', err);
+    return res.status(500).json({ error: 'Failed to update payment status.' });
   }
 }
 

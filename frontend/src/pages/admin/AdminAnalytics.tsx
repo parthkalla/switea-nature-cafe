@@ -389,9 +389,8 @@ export const AdminAnalytics: React.FC = () => {
                 className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-semibold text-stone-700 focus:outline-none"
               >
                 <option value="ALL">All Payment Methods</option>
-                <option value="UPI">UPI / GPay / QR</option>
-                <option value="CASH">Cash on Table</option>
                 <option value="PAY_AT_COUNTER">Pay at Counter</option>
+                <option value="UPI">UPI / GPay / QR</option>
                 <option value="RAZORPAY">Online Card</option>
               </select>
             </div>
@@ -402,7 +401,13 @@ export const AdminAnalytics: React.FC = () => {
             {(() => {
               const filteredOrders = (recentOrders || []).filter((o: any) => {
                 if (channelFilter !== 'ALL' && o.orderType !== channelFilter) return false;
-                if (paymentFilter !== 'ALL' && o.paymentMethod !== paymentFilter) return false;
+                if (paymentFilter !== 'ALL') {
+                  if (paymentFilter === 'PAY_AT_COUNTER') {
+                    if (o.paymentMethod !== 'PAY_AT_COUNTER' && o.paymentMethod !== 'CASH') return false;
+                  } else if (o.paymentMethod !== paymentFilter) {
+                    return false;
+                  }
+                }
                 if (searchQuery.trim()) {
                   const q = searchQuery.toLowerCase();
                   const matchName = (o.customerName || '').toLowerCase().includes(q);
@@ -512,14 +517,9 @@ export const AdminAnalytics: React.FC = () => {
                                     <QrCode className="w-3.5 h-3.5 text-emerald-700" />
                                     <span>UPI / GPay</span>
                                   </>
-                                ) : o.paymentMethod === 'CASH' ? (
+                                ) : o.paymentMethod === 'PAY_AT_COUNTER' || o.paymentMethod === 'CASH' ? (
                                   <>
-                                    <Banknote className="w-3.5 h-3.5 text-stone-600" />
-                                    <span>Cash on Table</span>
-                                  </>
-                                ) : o.paymentMethod === 'PAY_AT_COUNTER' ? (
-                                  <>
-                                    <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
+                                    <ShoppingBag className="w-3.5 h-3.5 text-amber-700" />
                                     <span>Pay at Counter</span>
                                   </>
                                 ) : (

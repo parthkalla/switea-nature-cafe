@@ -23,6 +23,7 @@ import {
   deleteTable,
   getOrders,
   updateOrderStatus,
+  updateOrderPaymentStatus,
   getKitchenQueue,
   getDiscounts,
   createDiscount,
@@ -86,6 +87,7 @@ router.delete('/tables/:id', deleteTable);
 // Orders
 router.get('/orders', getOrders);
 router.put('/orders/:id/status', updateOrderStatus);
+router.put('/orders/:id/payment', updateOrderPaymentStatus);
 
 // Kitchen queue
 router.get('/kitchen', getKitchenQueue);

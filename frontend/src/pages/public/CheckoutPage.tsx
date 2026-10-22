@@ -24,7 +24,7 @@ export const CheckoutPage: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [orderType, setOrderType] = useState<'DINE_IN' | 'TAKEAWAY'>(tableToken ? 'DINE_IN' : 'TAKEAWAY');
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'PAY_AT_COUNTER' | 'UPI' | 'RAZORPAY'>('CASH');
+  const [paymentMethod, setPaymentMethod] = useState<'PAY_AT_COUNTER' | 'UPI' | 'RAZORPAY'>('PAY_AT_COUNTER');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +56,7 @@ export const CheckoutPage: React.FC = () => {
         items: items.map((i) => ({
           menuItemId: i.menuItemId,
           variantId: i.variantId,
-          modifierOptionIds: (i.selectedModifiers || []).map((m) => m.id),
+          modifierOptionIds: i.selectedModifiers?.map((m) => m.id),
           quantity: i.quantity,
           notes: i.notes,
         })),
@@ -180,10 +180,9 @@ export const CheckoutPage: React.FC = () => {
 
               <div className="space-y-2">
                 {[
-                  { id: 'CASH', label: 'Cash on Table', desc: 'Pay with cash after serving', icon: Banknote },
-                  { id: 'PAY_AT_COUNTER', label: 'Pay at Counter', desc: 'Settle bill at billing counter', icon: Store },
-                  { id: 'UPI', label: 'UPI / Dynamic QR', desc: 'Google Pay, PhonePe, Paytm', icon: QrCode },
-                  { id: 'RAZORPAY', label: 'Online Payment (Cards / NetBanking)', desc: 'Secure payment gateway', icon: CreditCard },
+                  { id: 'PAY_AT_COUNTER', label: 'Pay at Counter (Cash / Card)', desc: 'Pay with cash or card directly at the billing counter', icon: Store },
+                  { id: 'UPI', label: 'UPI / Dynamic QR', desc: 'Scan QR with Google Pay, PhonePe, Paytm', icon: QrCode },
+                  { id: 'RAZORPAY', label: 'Online Payment (Cards / NetBanking)', desc: 'Instant & secure payment gateway', icon: CreditCard },
                 ].map((m) => {
                   const Icon = m.icon;
                   const isSelected = paymentMethod === m.id;
