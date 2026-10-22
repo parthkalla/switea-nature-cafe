@@ -14,6 +14,7 @@ export interface Restaurant {
   email: string;
   mapLink?: string;
   whatsappNumber?: string;
+  upiId?: string;
   openingHours: string;
   currency: string;
   currencySymbol: string;

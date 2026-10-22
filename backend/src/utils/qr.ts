@@ -26,5 +26,5 @@ export async function generateQRCodeSVG(url: string): Promise<string> {
 
 export function buildTableMenuUrl(frontendUrl: string, restaurantSlug: string, tableToken: string): string {
   const base = frontendUrl.replace(/\/$/, '');
-  return `${base}/menu/${restaurantSlug}/table/${tableToken}`;
+  return `${base}/menu?table=${tableToken}`;
 }

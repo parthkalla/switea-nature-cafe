@@ -7,6 +7,25 @@ import { emitOrderStatusUpdated } from '../realtime/socket';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+// Helper to resolve live public frontend domain from incoming request
+function getDynamicFrontendUrl(req: Request): string {
+  const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer as string).origin : '');
+  if (origin && typeof origin === 'string' && origin.startsWith('http')) {
+    return origin.replace(/\/$/, '');
+  }
+  const forwardedHost = req.headers['x-forwarded-host'] as string;
+  if (forwardedHost) {
+    const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
+    return `${proto}://${forwardedHost}`.replace(/\/$/, '');
+  }
+  const host = req.headers.host as string;
+  if (host && !host.includes('localhost:5000') && !host.includes('127.0.0.1:5000')) {
+    const proto = req.secure ? 'https' : 'http';
+    return `${proto}://${host}`.replace(/\/$/, '');
+  }
+  return FRONTEND_URL;
+}
+
 // Helper to get authorized restaurant ID
 function getRestaurantId(req: Request): string {
   return (req.user?.restaurantId || req.query.restaurantId || req.params.restaurantId) as string;
@@ -49,7 +68,7 @@ export async function getDashboardAnalytics(req: Request, res: Response) {
       prisma.order.findMany({
         where: { restaurantId },
         orderBy: { createdAt: 'desc' },
-        take: 8,
+        take: 100,
         include: {
           table: { select: { tableNumber: true, name: true } },
           items: true,
@@ -207,9 +226,8 @@ export async function updateRestaurantProfile(req: Request, res: Response) {
       state,
       postalCode,
       phone,
-      email,
-      mapLink,
       whatsappNumber,
+      upiId,
       openingHours,
       currency,
       currencySymbol,
@@ -236,6 +254,7 @@ export async function updateRestaurantProfile(req: Request, res: Response) {
         email,
         mapLink,
         whatsappNumber,
+        upiId: upiId !== undefined ? String(upiId).trim() : undefined,
         openingHours,
         currency,
         currencySymbol,
@@ -581,11 +600,12 @@ export async function getTables(req: Request, res: Response) {
       },
     });
 
-    // Attach full URL and QR preview to each table
+    // Attach full URL and QR preview to each table using dynamic live domain
+    const liveFrontendUrl = getDynamicFrontendUrl(req);
     const enrichedTables = await Promise.all(
       tables.map(async (t) => {
         const token = t.qrCode?.token || '';
-        const url = buildTableMenuUrl(FRONTEND_URL, restaurant?.slug || 'switea', token);
+        const url = buildTableMenuUrl(liveFrontendUrl, restaurant?.slug || 'switea', token);
         const qrDataUrl = token ? await generateQRCodeDataUrl(url) : null;
         return {
           ...t,
@@ -628,7 +648,8 @@ export async function createTable(req: Request, res: Response) {
     });
 
     const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { slug: true } });
-    const url = buildTableMenuUrl(FRONTEND_URL, restaurant?.slug || 'switea', token);
+    const liveFrontendUrl = getDynamicFrontendUrl(req);
+    const url = buildTableMenuUrl(liveFrontendUrl, restaurant?.slug || 'switea', token);
     const qrDataUrl = await generateQRCodeDataUrl(url);
 
     return res.status(201).json({
@@ -668,7 +689,8 @@ export async function regenerateTableQRToken(req: Request, res: Response) {
       },
     });
 
-    const url = buildTableMenuUrl(FRONTEND_URL, qr.table.restaurant.slug, newToken);
+    const liveFrontendUrl = getDynamicFrontendUrl(req);
+    const url = buildTableMenuUrl(liveFrontendUrl, qr.table.restaurant.slug, newToken);
     const qrDataUrl = await generateQRCodeDataUrl(url);
 
     return res.json({

@@ -61,6 +61,16 @@ export const api = {
     return res.json();
   },
 
+  async confirmOrderPayment(orderToken: string, payload?: { utrNumber?: string; paymentMethod?: string }) {
+    const res = await fetch(`${API_BASE}/public/orders/${orderToken}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+    if (!res.ok) throw new Error('Failed to record payment');
+    return res.json();
+  },
+
   async submitReview(slug: string, payload: { customerName: string; rating: number; comment: string }) {
     const res = await fetch(`${API_BASE}/public/reviews/${slug}`, {
       method: 'POST',

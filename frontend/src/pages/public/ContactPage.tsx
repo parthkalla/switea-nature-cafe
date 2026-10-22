@@ -2,8 +2,30 @@ import React from 'react';
 import { MapPin, Phone, Mail, Clock, MessageSquare, ExternalLink } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
+import { api } from '../../services/api';
 
 export const ContactPage: React.FC = () => {
+  const [data, setData] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    async function loadInfo() {
+      try {
+        const res = await api.getLandingPage('switea');
+        setData(res?.restaurant);
+      } catch (err) {
+        console.error('Failed to load contact info:', err);
+      }
+    }
+    loadInfo();
+  }, []);
+
+  const address = data?.address || '64A, Garden Cafe, Karni Vihar, Maa Karni Nagar, Gandhipath, near Vaishali Nagar, Jaipur, Rajasthan 302021';
+  const phone = data?.phone || '+91 95554 95454';
+  const hours = data?.openingHours || 'Monday to Sunday: 10:00 AM – 11:30 PM';
+  const mapSearch = data?.mapLink || `${address}`;
+  const mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapSearch)}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+  const directionsUrl = mapSearch.startsWith('http') ? mapSearch : `https://maps.google.com/?q=${encodeURIComponent(mapSearch)}`;
+
   return (
     <div className="min-h-screen bg-cream-100 flex flex-col selection:bg-nature-200">
       <Navbar />
@@ -30,7 +52,7 @@ export const ContactPage: React.FC = () => {
               </div>
               <h3 className="font-serif font-bold text-base text-stone-900">Cafe Address</h3>
               <p className="text-xs text-stone-600 leading-relaxed">
-                64A, Garden Cafe, Karni Vihar, Maa Karni Nagar, Gandhipath, near Vaishali Nagar, Jaipur, Rajasthan 302021
+                {address}
               </p>
             </div>
 
@@ -40,7 +62,7 @@ export const ContactPage: React.FC = () => {
               </div>
               <h3 className="font-serif font-bold text-base text-stone-900">Phone & WhatsApp</h3>
               <p className="text-xs text-stone-600">
-                Call: <a href="tel:+919555495454" className="font-semibold text-nature-900 hover:underline">+91 95554 95454</a>
+                Call: <a href={`tel:${phone.replace(/\s+/g, '')}`} className="font-semibold text-nature-900 hover:underline">{phone}</a>
               </p>
             </div>
 
@@ -49,7 +71,7 @@ export const ContactPage: React.FC = () => {
                 <Clock className="w-5 h-5" />
               </div>
               <h3 className="font-serif font-bold text-base text-stone-900">Operating Hours</h3>
-              <p className="text-xs text-stone-600">Monday to Sunday: 10:00 AM – 11:30 PM</p>
+              <p className="text-xs text-stone-600">{hours}</p>
               <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-full">
                 ● Open Today
               </span>
@@ -61,15 +83,15 @@ export const ContactPage: React.FC = () => {
             <div className="rounded-2xl overflow-hidden aspect-[16/11]">
               <iframe
                 title="Switea Location Map"
-                src="https://maps.google.com/maps?q=Karni%20Vihar%20Gandhipath%20Jaipur&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                src={mapEmbedUrl}
                 className="w-full h-full border-0"
                 loading="lazy"
               />
             </div>
             <div className="p-4 flex items-center justify-between text-xs">
-              <span className="font-medium text-stone-600">Near Vaishali Nagar, Jaipur</span>
+              <span className="font-medium text-stone-600">Jaipur, Rajasthan</span>
               <a
-                href="https://maps.google.com/?q=Switea+Garden+Cafe+Jaipur"
+                href={directionsUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 font-bold text-nature-900 hover:underline"

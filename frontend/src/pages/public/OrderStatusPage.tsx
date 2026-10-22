@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   CheckCircle2,
   Clock,
@@ -11,6 +12,12 @@ import {
   AlertCircle,
   Star,
   MessageSquare,
+  QrCode,
+  Lock,
+  Copy,
+  ExternalLink,
+  ShieldCheck,
+  Check,
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
@@ -31,6 +38,12 @@ export const OrderStatusPage: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // UPI payment state
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [utrNumber, setUtrNumber] = useState('');
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
   // Review state
   const [reviewRating, setReviewRating] = useState(5);
@@ -95,6 +108,28 @@ export const OrderStatusPage: React.FC = () => {
     } finally {
       setSubmittingReview(false);
     }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!orderToken) return;
+    try {
+      setConfirmingPayment(true);
+      await api.confirmOrderPayment(orderToken, { utrNumber: utrNumber.trim() || undefined, paymentMethod: 'UPI' });
+      setPaymentConfirmed(true);
+      if (order) {
+        setOrder({ ...order, paymentStatus: 'PAID' });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to update payment status.');
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  const handleCopyUpi = (upiId: string) => {
+    navigator.clipboard.writeText(upiId);
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2000);
   };
 
   if (loading) {
@@ -182,11 +217,135 @@ export const OrderStatusPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Dynamic UPI Payment Card (Amount Locked & Verified) */}
+        {order.paymentMethod === 'UPI' && (
+          <div className="bg-white rounded-3xl border-2 border-emerald-600/30 shadow-card p-6 sm:p-8 mb-8 overflow-hidden relative">
+            <div className="absolute top-0 right-0 bg-emerald-700 text-white text-[10px] uppercase font-bold tracking-wider px-4 py-1 rounded-bl-xl shadow-xs flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>UPI Secure • Amount Locked</span>
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              {/* Dynamic QR Display */}
+              <div className="bg-cream-100 p-4 rounded-2xl border border-cream-300/80 flex flex-col items-center flex-shrink-0 shadow-inner">
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-stone-200">
+                  <QRCodeSVG
+                    value={`upi://pay?pa=${encodeURIComponent(
+                      (order as any).restaurant?.upiId || 'switeacafe@okhdfcbank'
+                    )}&pn=${encodeURIComponent('Switea Nature Cafe')}&am=${order.totalAmount.toFixed(
+                      2
+                    )}&cu=INR&tn=${encodeURIComponent(`Order ${order.orderNumber}`)}`}
+                    size={160}
+                    level="H"
+                    fgColor="#1A3C2B"
+                    bgColor="#FFFFFF"
+                  />
+                </div>
+                <div className="mt-2 text-center">
+                  <span className="text-[11px] font-bold text-stone-700 block">Scan to Pay via Any UPI App</span>
+                  <span className="text-[10px] text-stone-500">GPay • PhonePe • Paytm • BHIM • CRED</span>
+                </div>
+              </div>
+
+              {/* Details & Actions */}
+              <div className="flex-1 w-full space-y-4 text-left">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs uppercase font-bold tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-emerald-700" />
+                      Amount Non-Editable
+                    </span>
+                    <span className="text-xs text-stone-500">Payable Bill:</span>
+                  </div>
+                  <div className="font-serif text-3xl font-extrabold text-nature-950 flex items-baseline gap-1">
+                    <span>₹{order.totalAmount.toFixed(2)}</span>
+                    <span className="text-xs font-normal text-stone-500">INR</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs flex items-center justify-between">
+                  <div>
+                    <span className="text-stone-400 text-[10px] uppercase font-bold block">Payee UPI VPA:</span>
+                    <span className="font-mono font-bold text-stone-800">
+                      {(order as any).restaurant?.upiId || 'switeacafe@okhdfcbank'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyUpi((order as any).restaurant?.upiId || 'switeacafe@okhdfcbank')}
+                    className="p-1.5 text-xs text-stone-600 hover:text-nature-900 bg-white border border-stone-200 rounded-lg flex items-center gap-1 font-semibold"
+                  >
+                    {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+
+                {/* Mobile Intent Trigger */}
+                <div className="space-y-2">
+                  <a
+                    href={`upi://pay?pa=${encodeURIComponent(
+                      (order as any).restaurant?.upiId || 'switeacafe@okhdfcbank'
+                    )}&pn=${encodeURIComponent('Switea Nature Cafe')}&am=${order.totalAmount.toFixed(
+                      2
+                    )}&cu=INR&tn=${encodeURIComponent(`Order ${order.orderNumber}`)}`}
+                    className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open in Google Pay / PhonePe / Paytm</span>
+                  </a>
+
+                  {/* Payment Confirmation Trigger */}
+                  {order.paymentStatus === 'PAID' || paymentConfirmed ? (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <span>Payment Verified & Marked as Paid via UPI</span>
+                    </div>
+                  ) : (
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={utrNumber}
+                        onChange={(e) => setUtrNumber(e.target.value)}
+                        placeholder="Optional UPI UTR / Ref (12 digits)"
+                        className="flex-1 px-3 py-2 text-xs border border-stone-200 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-emerald-700 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleConfirmPayment}
+                        disabled={confirmingPayment}
+                        className="bg-nature-900 hover:bg-nature-950 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                      >
+                        {confirmingPayment ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5" />
+                        )}
+                        <span>I Have Paid via UPI</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Itemized Snapshot */}
         <div className="bg-white rounded-3xl border border-stone-200 shadow-soft p-6 sm:p-8 space-y-6">
           <h2 className="font-serif font-bold text-lg text-stone-900 pb-3 border-b border-stone-100 flex items-center justify-between">
             <span>Ordered Items</span>
-            <span className="text-xs font-normal text-stone-500">Payment: {order.paymentMethod}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-normal text-stone-500">Method: {order.paymentMethod}</span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  order.paymentStatus === 'PAID'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-900'
+                }`}
+              >
+                {order.paymentStatus === 'PAID' ? '● PAID' : '● PAYMENT PENDING'}
+              </span>
+            </div>
           </h2>
 
           <div className="divide-y divide-stone-100">
@@ -246,9 +405,21 @@ export const OrderStatusPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Customer Experience Review Section */}
+        {/* Customer Experience Review Section (Exclusively unlocked once order is SERVED) */}
         <div className="bg-white rounded-3xl border border-stone-200 shadow-soft p-6 sm:p-8 mt-8">
-          {reviewSubmitted ? (
+          {order.status !== 'SERVED' ? (
+            <div className="text-center py-6 space-y-2">
+              <div className="w-12 h-12 rounded-full bg-cream-200 text-stone-600 flex items-center justify-center mx-auto mb-2">
+                <Lock className="w-5 h-5 text-stone-500" />
+              </div>
+              <h3 className="font-serif text-lg font-bold text-stone-800">
+                Guest Review Unlocks After Order is Served
+              </h3>
+              <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                Once our kitchen team delivers your meal to your table and marks it as served, you can rate your dining experience here.
+              </p>
+            </div>
+          ) : reviewSubmitted ? (
             <div className="text-center py-6 space-y-3 animate-in fade-in">
               <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-8 h-8" />
@@ -272,7 +443,7 @@ export const OrderStatusPage: React.FC = () => {
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold mb-1">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{order.status === 'SERVED' ? 'Order Served — Rate Your Experience' : 'Leave a Guest Review'}</span>
+                    <span>Order Served — Rate Your Experience</span>
                   </div>
                   <h3 className="font-serif text-xl sm:text-2xl font-bold text-stone-900">
                     How was your Switea experience?

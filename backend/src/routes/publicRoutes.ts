@@ -7,6 +7,7 @@ import {
   createOrder,
   getOrderStatus,
   createReview,
+  confirmOrderPayment,
 } from '../controllers/publicController';
 
 const router = Router();
@@ -23,9 +24,10 @@ router.get('/table/:token', getTableByToken);
 // Cart calculation
 router.post('/cart/calculate', calculateCart);
 
-// Order creation and tracking
+// Order creation, tracking and payment
 router.post('/orders', createOrder);
 router.get('/orders/:orderToken', getOrderStatus);
+router.post('/orders/:orderToken/payment', confirmOrderPayment);
 
 // Customer reviews
 router.post('/reviews/:slug?', createReview);

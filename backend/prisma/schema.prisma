@@ -41,6 +41,7 @@ model Restaurant {
   email              String
   mapLink            String?
   whatsappNumber     String?
+  upiId              String?  @default("switeacafe@okhdfcbank")
   openingHours       String   @default("10:00 AM - 11:00 PM")
   currency           String   @default("INR")
   currencySymbol     String   @default("₹")

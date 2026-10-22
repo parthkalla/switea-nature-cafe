@@ -188,6 +188,70 @@ export const AdminProfile: React.FC = () => {
             </div>
           </div>
 
+          {/* Location & Google Maps */}
+          <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-soft space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+              <div>
+                <h2 className="font-serif font-bold text-base text-stone-900">Google Maps Location & Navigation</h2>
+                <p className="text-xs text-stone-500">Edit your cafe's Google Maps pin, directions link and embed</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs uppercase tracking-wider font-bold text-stone-600 block mb-1">
+                Google Maps Link / Search Query
+              </label>
+              <input
+                type="text"
+                value={profile.mapLink || ''}
+                onChange={(e) => setProfile({ ...profile, mapLink: e.target.value })}
+                placeholder="e.g. Switea Garden Cafe, Karni Vihar, Gandhipath, Jaipur or https://maps.google.com/?q=..."
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800"
+              />
+              <p className="text-[11px] text-stone-400 mt-1">
+                Enter your cafe location name or Google Maps URL. The public Contact and About pages will automatically display this map.
+              </p>
+            </div>
+
+            {/* Live Map Preview */}
+            <div className="mt-3 rounded-2xl overflow-hidden border border-stone-200 aspect-[16/7] bg-stone-100 relative">
+              <iframe
+                title="Live Map Preview"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                  profile.mapLink || `${profile.address}, ${profile.city}`
+                )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                className="w-full h-full border-0"
+                loading="lazy"
+              />
+            </div>
+          </div>
+
+          {/* Payment & UPI Configuration */}
+          <div className="bg-white rounded-3xl border border-stone-200 p-6 shadow-soft space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
+              <div>
+                <h2 className="font-serif font-bold text-base text-stone-900">UPI & Dynamic QR Payment Setup</h2>
+                <p className="text-xs text-stone-500">Configure your cafe's UPI VPA for locked-amount GPay, PhonePe & Paytm customer payments</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs uppercase tracking-wider font-bold text-stone-600 block mb-1">
+                Cafe Merchant UPI ID (VPA)
+              </label>
+              <input
+                type="text"
+                value={profile.upiId || ''}
+                onChange={(e) => setProfile({ ...profile, upiId: e.target.value })}
+                placeholder="e.g. 9555495454@paytm or switeanaturecafe@okhdfcbank"
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-nature-800"
+              />
+              <p className="text-[11px] text-stone-400 mt-1">
+                Customer payments will generate dynamic UPI QR codes and GPay links with this exact VPA and locked bill amounts.
+              </p>
+            </div>
+          </div>
+
           <div className="flex justify-end">
             <button
               type="submit"

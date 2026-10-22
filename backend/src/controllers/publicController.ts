@@ -656,7 +656,7 @@ export async function getOrderStatus(req: Request, res: Response) {
           select: { tableNumber: true, name: true, section: true },
         },
         restaurant: {
-          select: { name: true, phone: true, currencySymbol: true },
+          select: { name: true, phone: true, currencySymbol: true, upiId: true },
         },
         items: {
           include: {
@@ -726,5 +726,46 @@ export async function createReview(req: Request, res: Response) {
   } catch (err: any) {
     console.error('createReview error:', err);
     return res.status(500).json({ error: 'Failed to submit review.' });
+  }
+}
+
+export async function confirmOrderPayment(req: Request, res: Response) {
+  try {
+    const { orderToken } = req.params;
+    const { utrNumber, paymentMethod = 'UPI' } = req.body;
+
+    const order = await prisma.order.findUnique({
+      where: { orderToken },
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: 'PAID',
+        paymentMethod,
+        payments: {
+          create: {
+            restaurantId: order.restaurantId,
+            amount: order.totalAmount,
+            provider: paymentMethod,
+            status: 'COMPLETED',
+            transactionRef: utrNumber ? String(utrNumber).trim() : `UPI-${Date.now()}`,
+          },
+        },
+      },
+      include: {
+        table: true,
+        items: true,
+      },
+    });
+
+    return res.json({ success: true, order: updated });
+  } catch (err: any) {
+    console.error('confirmOrderPayment error:', err);
+    return res.status(500).json({ error: 'Failed to confirm payment.' });
   }
 }

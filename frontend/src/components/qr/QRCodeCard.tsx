@@ -11,7 +11,11 @@ interface QRCodeCardProps {
 
 export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onDelete }) => {
   const qrRef = useRef<SVGSVGElement>(null);
-  const targetUrl = table.qrUrl || `https://switeanaturecafe.com/menu/switea/table/${table.qrCode?.token || ''}`;
+  const token = table.qrCode?.token || '';
+  
+  // Use current live website domain so QR codes always point to live domain when deployed
+  const liveOrigin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+  const targetUrl = liveOrigin ? `${liveOrigin}/menu?table=${token}` : (table.qrUrl || `/menu?table=${token}`);
 
   const downloadSVG = () => {
     if (!qrRef.current) return;
@@ -95,6 +99,18 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onD
         <div className="flex items-center justify-between text-xs text-stone-500 mt-2 px-1">
           <span>Scans: <strong className="text-stone-800">{table.qrCode?.scanCount || 0}</strong></span>
           <span className="text-[11px]">Token: <code className="bg-stone-100 px-1 py-0.5 rounded text-[10px]">{table.qrCode?.token.slice(0, 10)}...</code></span>
+        </div>
+
+        <div className="mt-1 px-1">
+          <a
+            href={targetUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[10px] text-nature-800 hover:underline block truncate font-mono"
+            title={targetUrl}
+          >
+            🔗 {targetUrl}
+          </a>
         </div>
       </div>
 
