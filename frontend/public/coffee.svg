@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="coffeeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4A373" />
+      <stop offset="100%" stop-color="#5C3A1E" />
+    </linearGradient>
+    <linearGradient id="cupGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2C1810" />
+      <stop offset="100%" stop-color="#150B07" />
+    </linearGradient>
+  </defs>
+  <!-- Background Circle -->
+  <rect width="64" height="64" rx="16" fill="url(#cupGrad)"/>
+  <!-- Coffee Cup Body -->
+  <path d="M16 24C16 35 23 44 34 44C43 44 49 37 50 28H16V24Z" fill="url(#coffeeGrad)"/>
+  <!-- Handle -->
+  <path d="M48 27C52.4 27 55 29.5 55 33.5C55 37.5 52 40 47 40" stroke="url(#coffeeGrad)" stroke-width="3" stroke-linecap="round"/>
+  <!-- Saucer -->
+  <path d="M12 48H52" stroke="#D4A373" stroke-width="3" stroke-linecap="round"/>
+  <!-- Musical Steam Note -->
+  <path d="M30 14C30 18 33 20 33 22M38 12C38 16 41 18 41 22" stroke="#FAF6F0" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="28" cy="14" r="2.5" fill="#FAF6F0"/>
+  <circle cx="36" cy="12" r="2.5" fill="#FAF6F0"/>
+  <path d="M28 14V8L38 6V12" stroke="#FAF6F0" stroke-width="2" stroke-linecap="round"/>
+</svg>

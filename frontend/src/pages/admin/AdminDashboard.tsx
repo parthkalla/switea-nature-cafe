@@ -97,7 +97,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-serif text-3xl font-bold text-stone-900">Cafe Overview</h1>
-            <p className="text-xs text-stone-500 mt-1">Live metrics from your Switea restaurant database</p>
+            <p className="text-xs text-stone-500 mt-1">Live metrics from your RoastFuze restaurant database</p>
           </div>
           <div className="flex items-center gap-3">
             <Link

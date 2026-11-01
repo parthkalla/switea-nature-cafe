@@ -1,7 +1,22 @@
-const API_BASE = '/api';
+const getApiBase = () => {
+  if (typeof window === 'undefined') return '/api';
+  const h = window.location.hostname.toLowerCase();
+  // Local development
+  if (h.includes('localhost') || h.includes('127.0.0.1')) {
+    return '/api';
+  }
+  // If browsing from any asrockstudios.in subdomain (admin.asrockstudios.in, cafe.asrockstudios.in, etc.)
+  // route all API requests to the production backend server
+  if (h.endsWith('asrockstudios.in') && h !== 'roastfuze.asrockstudios.in') {
+    return 'https://roastfuze.asrockstudios.in/api';
+  }
+  return '/api';
+};
+
+const API_BASE = getApiBase();
 
 function getHeaders(): HeadersInit {
-  const token = localStorage.getItem('switea_token');
+  const token = localStorage.getItem('roastfuze_token');
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -13,13 +28,13 @@ function getHeaders(): HeadersInit {
 
 export const api = {
   // Public
-  async getLandingPage(slug = 'switea') {
+  async getLandingPage(slug = 'roastfuze') {
     const res = await fetch(`${API_BASE}/public/landing/${slug}`);
     if (!res.ok) throw new Error('Failed to load landing page');
     return res.json();
   },
 
-  async getMenu(slug = 'switea') {
+  async getMenu(slug = 'roastfuze') {
     const res = await fetch(`${API_BASE}/public/menu/${slug}`);
     if (!res.ok) throw new Error('Failed to load menu');
     return res.json();
@@ -34,7 +49,33 @@ export const api = {
     return res.json();
   },
 
-  async calculateCart(payload: { restaurantSlug: string; items: any[]; discountCode?: string }) {
+  async getPublicTables(slug = 'roastfuze') {
+    const res = await fetch(`${API_BASE}/public/tables?slug=${encodeURIComponent(slug)}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Failed to fetch tables');
+    return res.json();
+  },
+
+  async getLoyaltyBalance(phone: string, slug = 'roastfuze') {
+    const res = await fetch(`${API_BASE}/public/loyalty/balance?phone=${encodeURIComponent(phone)}&slug=${encodeURIComponent(slug)}`, { cache: 'no-store' });
+    if (!res.ok) {
+      const text = await res.text();
+      let message = 'Failed to fetch loyalty balance';
+      if (text) {
+        try { message = JSON.parse(text).error || message; } catch { /* server returned a non-JSON error */ }
+      }
+      throw new Error(message);
+    }
+    return res.json();
+  },
+
+  async calculateCart(payload: {
+    restaurantSlug: string;
+    items: any[];
+    discountCode?: string;
+    customerPhone?: string;
+    redeemFoodPoints?: number;
+    redeemCoffeePoints?: number;
+  }) {
     const res = await fetch(`${API_BASE}/public/cart/calculate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -136,6 +177,31 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to update landing editor');
+    return res.json();
+  },
+
+  async getWebsiteCustomizer() {
+    const res = await fetch(`${API_BASE}/admin/customizer`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch website customizer data');
+    return res.json();
+  },
+
+  async updateWebsiteCustomizer(data: any) {
+    const res = await fetch(`${API_BASE}/admin/customizer`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to save website customization');
+    return res.json();
+  },
+
+  async toggleWebsitePublish() {
+    const res = await fetch(`${API_BASE}/admin/customizer/toggle-publish`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to toggle publish status');
     return res.json();
   },
 
@@ -252,6 +318,24 @@ export const api = {
     return res.json();
   },
 
+  async freeTable(tableId: string) {
+    const res = await fetch(`${API_BASE}/admin/tables/${tableId}/free`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to free table');
+    return res.json();
+  },
+
+  async freeAllTables() {
+    const res = await fetch(`${API_BASE}/admin/tables/free-all`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to free all tables');
+    return res.json();
+  },
+
   async getAdminOrders(status?: string, search?: string) {
     let url = `${API_BASE}/admin/orders?`;
     if (status) url += `status=${status}&`;
@@ -279,6 +363,21 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to update payment status');
     return res.json();
+  },
+
+  async getMarketplaceConnections() {
+    const res = await fetch(`${API_BASE}/admin/marketplace-connections`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to load marketplace connections');
+    return res.json();
+  },
+
+  async saveMarketplaceConnection(provider: 'SWIGGY' | 'ZOMATO', data: any) {
+    const res = await fetch(`${API_BASE}/admin/marketplace-connections/${provider}`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to save marketplace connection');
+    return result;
   },
 
   async getKitchenQueue() {
@@ -356,7 +455,7 @@ export const api = {
   async uploadImage(file: File) {
     const formData = new FormData();
     formData.append('image', file);
-    const token = localStorage.getItem('switea_token');
+    const token = localStorage.getItem('roastfuze_token');
     const res = await fetch(`${API_BASE}/admin/upload`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -370,6 +469,32 @@ export const api = {
     const res = await fetch(`${API_BASE}/admin/customers`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch customers');
     return res.json();
+  },
+
+  async getCustomerLoyalty(phone: string) {
+    const res = await fetch(`${API_BASE}/admin/customers/${encodeURIComponent(phone)}/loyalty`, {
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch customer loyalty');
+    return res.json();
+  },
+
+  async adjustCustomerLoyalty(payload: {
+    customerPhone: string;
+    customerName?: string;
+    pointsType: 'FOOD' | 'COFFEE';
+    amount: number;
+    reason?: string;
+    description?: string;
+  }) {
+    const res = await fetch(`${API_BASE}/admin/customers/loyalty/adjust`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to adjust loyalty points');
+    return data;
   },
 
   async getAdminModifiers() {
@@ -448,16 +573,103 @@ export const api = {
     return res.json();
   },
 
+  async deleteRestaurant(id: string) {
+    const res = await fetch(`${API_BASE}/super-admin/restaurants/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (res.ok) return { success: true };
+      throw new Error(`Server error (${res.status}): Failed to delete restaurant`);
+    }
+    if (!res.ok) throw new Error(data.error || 'Failed to delete restaurant');
+    return data;
+  },
+
+  async restoreRestaurant(id: string) {
+    const res = await fetch(`${API_BASE}/super-admin/restaurants/${id}/restore`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (res.ok) return { success: true };
+      throw new Error(`Server error (${res.status}): Failed to restore restaurant`);
+    }
+    if (!res.ok) throw new Error(data.error || 'Failed to restore restaurant');
+    return data;
+  },
+
   async getSuperAdminUsers() {
     const res = await fetch(`${API_BASE}/super-admin/users`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch users');
     return res.json();
   },
 
+  async resetUserPassword(userId: string, newPassword: string) {
+    const res = await fetch(`${API_BASE}/super-admin/users/${userId}/password`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ newPassword }),
+    });
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (res.ok) return { success: true };
+      throw new Error(`Server error (${res.status}): Please check backend connection.`);
+    }
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to reset password');
+    }
+    return data;
+  },
+
+  async changePassword(data: { currentPassword: string; newPassword: string }) {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    const resData = await res.json();
+    if (!res.ok) throw new Error(resData.error || 'Failed to change password');
+    return resData;
+  },
+
   async getSuperAdminPlans() {
     const res = await fetch(`${API_BASE}/super-admin/plans`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch plans');
     return res.json();
+  },
+
+  async updateSubscriptionPlan(planId: string, data: any) {
+    const res = await fetch(`${API_BASE}/super-admin/plans/${planId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    const resData = await res.json();
+    if (!res.ok) throw new Error(resData.error || 'Failed to update plan');
+    return resData;
+  },
+
+  async createSubscriptionPlan(data: any) {
+    const res = await fetch(`${API_BASE}/super-admin/plans`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    const resData = await res.json();
+    if (!res.ok) throw new Error(resData.error || 'Failed to create plan');
+    return resData;
   },
 
   async getSuperAdminAuditLogs() {
@@ -485,6 +697,93 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to update platform settings');
+    return res.json();
+  },
+
+  // Community & Events
+  async getCommunityEvents() {
+    const res = await fetch(`${API_BASE}/public/community/events`);
+    if (!res.ok) throw new Error('Failed to fetch community events');
+    return res.json();
+  },
+
+  async createSongRequest(data: any) {
+    const res = await fetch(`${API_BASE}/public/community/song-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to submit song request');
+    return res.json();
+  },
+
+  async getSongRequests() {
+    const res = await fetch(`${API_BASE}/public/community/song-requests`);
+    if (!res.ok) throw new Error('Failed to fetch song requests');
+    return res.json();
+  },
+
+  async createEventRsvp(data: any) {
+    const res = await fetch(`${API_BASE}/public/community/rsvp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to submit RSVP');
+    return res.json();
+  },
+
+  // Admin Push Notifications & Broadcasts
+  async sendCustomerNotification(payload: any) {
+    const res = await fetch(`${API_BASE}/admin/notifications/send`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to send push notification');
+    return res.json();
+  },
+
+  async getAdminNotificationHistory() {
+    const res = await fetch(`${API_BASE}/admin/notifications/history`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to load notification history');
+    return res.json();
+  },
+
+  async getAdminSongRequests() {
+    const res = await fetch(`${API_BASE}/admin/community/song-requests`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to load song requests');
+    return res.json();
+  },
+
+  async updateAdminSongRequest(id: string, status: string) {
+    const res = await fetch(`${API_BASE}/admin/community/song-requests/${id}`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error('Failed to update song request');
+    return res.json();
+  },
+
+  async getAdminEventRsvps() {
+    const res = await fetch(`${API_BASE}/admin/community/rsvps`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to load RSVPs');
+    return res.json();
+  },
+
+  async getAdminReviews() {
+    const res = await fetch(`${API_BASE}/admin/reviews`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to load reviews');
+    return res.json();
+  },
+
+  async toggleReviewApproval(id: string) {
+    const res = await fetch(`${API_BASE}/admin/reviews/${id}/approval`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to toggle review approval');
     return res.json();
   },
 };

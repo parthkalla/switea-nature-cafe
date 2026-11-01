@@ -12,6 +12,7 @@ import authRoutes from './routes/authRoutes';
 import publicRoutes from './routes/publicRoutes';
 import adminRoutes from './routes/adminRoutes';
 import superAdminRoutes from './routes/superAdminRoutes';
+import integrationRoutes from './routes/integrationRoutes';
 import { initSocketIO } from './realtime/socket';
 
 const app = express();
@@ -19,6 +20,16 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+const allowedOrigins = [
+  FRONTEND_URL,
+  'https://roastfuze.asrockstudios.in',
+  'https://admin.asrockstudios.in',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5000',
+  'http://localhost:3000',
+];
 
 // Initialize Realtime WebSocket Server
 initSocketIO(server, FRONTEND_URL);
@@ -28,7 +39,18 @@ app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
 app.use(cors({
-  origin: [FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.asrockstudios.in') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1')
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
   credentials: true,
 }));
 app.use(express.json());
@@ -44,12 +66,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/integrations', integrationRoutes);
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'switea-backend',
+    service: 'roastfuze-backend',
     time: new Date().toISOString(),
   });
 });
@@ -62,7 +85,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
-    console.log(`🍵 Switea Nature Cafe Server running on http://localhost:${PORT}`);
+    console.log(`☕ RoastFuze Coffee Bar - Musical Balcony Cafe running on http://localhost:${PORT}`);
   });
 }
 

@@ -64,6 +64,8 @@ model Restaurant {
   reviews            Review[]
   subscriptions      Subscription[]
   auditLogs          AuditLog[]
+  customerLoyalties  CustomerLoyalty[]
+  marketplaceConnections MarketplaceConnection[]
 }
 
 model RestaurantMembership {
@@ -77,6 +79,25 @@ model RestaurantMembership {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([userId, restaurantId])
+}
+
+model MarketplaceConnection {
+  id                   String   @id @default(uuid())
+  restaurantId         String
+  provider             String
+  status               String   @default("DISCONNECTED")
+  restaurantHandle     String?
+  externalRestaurantId String?
+  apiToken             String?
+  webhookSecret        String?
+  statusUrl            String?
+  lastSyncAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  restaurant           Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, provider])
 }
 
 model LandingPageContent {
@@ -125,6 +146,7 @@ model MenuCategory {
   slug         String
   description  String?
   image        String?
+  itemType     String     @default("FOOD") // "FOOD" or "COFFEE"
   displayOrder Int        @default(0)
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
@@ -144,6 +166,7 @@ model MenuItem {
   slug            String
   description     String?
   price           Float
+  itemType        String?        // "FOOD" or "COFFEE" (defaults to category itemType if null)
   isVeg           Boolean        @default(true)
   isBestseller    Boolean        @default(false)
   isSpecial       Boolean        @default(false)
@@ -266,12 +289,28 @@ model Order {
   tableId          String?
   diningSessionId  String?
   orderType        String          @default("DINE_IN")
+  source           String          @default("DIRECT")
+  externalOrderId  String?
+  externalStatus   String?
+  externalPayload  String?
+  riderName        String?
+  riderPhone       String?
+  riderVehicle     String?
+  deliveryAddress  String?
+  deliveryLat      Float?
+  deliveryLng      Float?
+  deliveryEta      Int?
   customerName     String?
   customerPhone    String?
   notes            String?
   subtotal         Float
   taxAmount        Float
   discountAmount   Float           @default(0.0)
+  foodPointsEarned     Int         @default(0)
+  coffeePointsEarned   Int         @default(0)
+  foodPointsRedeemed   Int         @default(0)
+  coffeePointsRedeemed Int         @default(0)
+  loyaltyDiscount      Float       @default(0.0)
   totalAmount      Float
   status           String          @default("PENDING")
   paymentStatus    String          @default("PENDING")
@@ -287,6 +326,7 @@ model Order {
   items            OrderItem[]
   payments         Payment[]
   redemptions      DiscountRedemption[]
+  loyaltyTransactions LoyaltyTransaction[]
 }
 
 model OrderItem {
@@ -294,6 +334,7 @@ model OrderItem {
   orderId    String
   menuItemId String?
   itemName   String
+  itemType   String              @default("FOOD") // "FOOD" or "COFFEE"
   unitPrice  Float
   quantity   Int
   totalPrice Float
@@ -419,4 +460,36 @@ model AuditLog {
 
   user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+}
+
+model CustomerLoyalty {
+  id                   String               @id @default(uuid())
+  restaurantId         String
+  customerPhone        String
+  customerName         String?
+  foodPoints           Int                  @default(0)
+  coffeePoints         Int                  @default(0)
+  lifetimeFoodPoints   Int                  @default(0)
+  lifetimeCoffeePoints Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  restaurant           Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  transactions         LoyaltyTransaction[]
+
+  @@unique([restaurantId, customerPhone])
+}
+
+model LoyaltyTransaction {
+  id                String          @id @default(uuid())
+  customerLoyaltyId String
+  orderId           String?
+  pointsType        String          // "FOOD" or "COFFEE"
+  points            Int             // + earned, - redeemed
+  reason            String          // "ORDER_EARNED", "ORDER_REDEEMED", "ADMIN_ADJUSTMENT"
+  description       String?
+  createdAt         DateTime        @default(now())
+
+  customerLoyalty   CustomerLoyalty @relation(fields: [customerLoyaltyId], references: [id], onDelete: Cascade)
+  order             Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
 }

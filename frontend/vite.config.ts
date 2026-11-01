@@ -11,20 +11,20 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5170,
     host: true,
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: process.env.VITE_BACKEND_TARGET || 'http://localhost:5000',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:5000',
+        target: process.env.VITE_BACKEND_TARGET || 'http://localhost:5000',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://localhost:5000',
+        target: process.env.VITE_BACKEND_TARGET || 'http://localhost:5000',
         ws: true,
       },
     },

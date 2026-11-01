@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
+import { THEME_PRESETS, ThemeTemplateId } from '../utils/themePresets';
 
 export async function getPlatformOverview(req: Request, res: Response) {
   try {
@@ -101,6 +102,7 @@ export async function createRestaurant(req: Request, res: Response) {
       address,
       city = 'Jaipur',
       planSlug = 'pro',
+      themeTemplate = 'GARDEN_CAFE',
     } = req.body;
 
     if (!name || !slug || !ownerEmail) {
@@ -108,6 +110,8 @@ export async function createRestaurant(req: Request, res: Response) {
     }
 
     const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const selectedThemeId = (themeTemplate in THEME_PRESETS ? themeTemplate : 'GARDEN_CAFE') as ThemeTemplateId;
+    const theme = THEME_PRESETS[selectedThemeId];
 
     // Check slug collision
     const existing = await prisma.restaurant.findUnique({ where: { slug: cleanSlug } });
@@ -117,15 +121,26 @@ export async function createRestaurant(req: Request, res: Response) {
 
     // Find or create owner
     let owner = await prisma.user.findUnique({ where: { email: ownerEmail.toLowerCase().trim() } });
+    const passwordHash = await bcrypt.hash(ownerPassword || 'CafeOwner@2026!', 10);
     if (!owner) {
-      const passwordHash = await bcrypt.hash(ownerPassword || 'SwiteaOwner2026!', 10);
       owner = await prisma.user.create({
         data: {
           email: ownerEmail.toLowerCase().trim(),
-          name: ownerName || 'Restaurant Owner',
+          name: ownerName || `${name} Owner`,
           phone: phone || null,
           role: 'OWNER',
           passwordHash,
+          status: 'ACTIVE',
+        },
+      });
+    } else {
+      // If owner already exists, ensure their password is set to the one configured during onboarding
+      owner = await prisma.user.update({
+        where: { id: owner.id },
+        data: {
+          passwordHash,
+          ...(ownerName ? { name: ownerName } : {}),
+          ...(phone ? { phone } : {}),
           status: 'ACTIVE',
         },
       });
@@ -140,6 +155,13 @@ export async function createRestaurant(req: Request, res: Response) {
       data: {
         name,
         slug: cleanSlug,
+        tagLine: theme.tagLine,
+        themeTemplate: selectedThemeId,
+        primaryColor: theme.primaryColor,
+        secondaryColor: theme.secondaryColor,
+        accentColor: theme.accentColor,
+        bgCream: theme.bgCream,
+        photoLayout: 'bento',
         phone: phone || '+91 95554 95454',
         email: ownerEmail,
         address: address || 'Jaipur, Rajasthan',
@@ -153,7 +175,12 @@ export async function createRestaurant(req: Request, res: Response) {
         landingContent: {
           create: {
             heroTitle: name,
-            heroSubtitle: 'Welcome to our premium dining experience.',
+            heroSubtitle: theme.heroSubtitle,
+            aboutTitle: theme.aboutTitle,
+            aboutText: theme.aboutText,
+            aboutHighlight1: theme.aboutHighlights[0],
+            aboutHighlight2: theme.aboutHighlights[1],
+            aboutHighlight3: theme.aboutHighlights[2],
           },
         },
         subscriptions: plan
@@ -169,6 +196,44 @@ export async function createRestaurant(req: Request, res: Response) {
       },
     });
 
+    // Populate theme starter categories and items so menu is immediately live!
+    if (theme.starterCategories && theme.starterCategories.length > 0) {
+      for (let cIdx = 0; cIdx < theme.starterCategories.length; cIdx++) {
+        const catDef = theme.starterCategories[cIdx];
+        const category = await prisma.menuCategory.create({
+          data: {
+            restaurantId: restaurant.id,
+            name: catDef.name,
+            slug: `${catDef.slug}-${cleanSlug}`,
+            itemType: catDef.itemType,
+            description: catDef.description,
+            image: catDef.image,
+            displayOrder: cIdx + 1,
+            isActive: true,
+          },
+        });
+
+        for (let iIdx = 0; iIdx < catDef.items.length; iIdx++) {
+          const itm = catDef.items[iIdx];
+          await prisma.menuItem.create({
+            data: {
+              restaurantId: restaurant.id,
+              categoryId: category.id,
+              name: itm.name,
+              slug: `${itm.slug}-${cleanSlug}`,
+              description: itm.description,
+              price: itm.price,
+              isVeg: itm.isVeg,
+              isAvailable: true,
+              isBestseller: itm.isBestseller,
+              image: itm.image,
+              displayOrder: iIdx + 1,
+            },
+          });
+        }
+      }
+    }
+
     // Audit log
     await prisma.auditLog.create({
       data: {
@@ -181,7 +246,18 @@ export async function createRestaurant(req: Request, res: Response) {
       },
     });
 
-    return res.status(201).json({ success: true, restaurant });
+    return res.status(201).json({
+      success: true,
+      restaurant,
+      onboarding: {
+        menuSubdomainUrl: `https://${cleanSlug}.asrockstudios.in`,
+        menuDirectUrl: `https://roastfuze.asrockstudios.in/menu/${cleanSlug}`,
+        adminUrl: `https://${cleanSlug}.asrockstudios.in/admin/login`,
+        ownerEmail: owner.email,
+        ownerName: owner.name,
+        tempPassword: ownerPassword || 'SwiteaOwner2026!',
+      },
+    });
   } catch (err: any) {
     console.error('createRestaurant error:', err);
     return res.status(500).json({ error: 'Failed to create restaurant.' });
@@ -202,6 +278,120 @@ export async function toggleRestaurantStatus(req: Request, res: Response) {
     return res.json({ success: true, isOpen: updated.isOpen });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to toggle status.' });
+  }
+}
+
+// Soft-delete / Archive Cafe without destroying DB historical data
+export async function deleteRestaurant(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id },
+      include: { landingContent: true },
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found.' });
+    }
+
+    // 1. Unpublish public landing page
+    if (restaurant.landingContent) {
+      await prisma.landingPageContent.update({
+        where: { id: restaurant.landingContent.id },
+        data: { isPublished: false },
+      });
+    }
+
+    // 2. Archive and free up slug so name/slug can be reused if desired
+    const originalSlug = restaurant.slug;
+    const archivedSlug = originalSlug.includes('-deleted-')
+      ? originalSlug
+      : `${originalSlug}-deleted-${Date.now().toString().slice(-6)}`;
+
+    const updated = await prisma.restaurant.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        isOpen: false,
+        isOrderingEnabled: false,
+        slug: archivedSlug,
+      },
+    });
+
+    // 3. Log audit action
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user?.id,
+        action: 'SUPER_ADMIN_DELETE_RESTAURANT',
+        entityType: 'Restaurant',
+        entityId: restaurant.id,
+        restaurantId: restaurant.id,
+        details: JSON.stringify({
+          originalSlug,
+          archivedSlug,
+          name: restaurant.name,
+        }),
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: `Cafe '${restaurant.name}' deleted successfully. Public website and subdomains taken offline. Database records preserved safely.`,
+      restaurant: updated,
+    });
+  } catch (err: any) {
+    console.error('deleteRestaurant error:', err);
+    return res.status(500).json({ error: 'Failed to delete restaurant.' });
+  }
+}
+
+// Restore an archived / deleted cafe
+export async function restoreRestaurant(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id },
+      include: { landingContent: true },
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found.' });
+    }
+
+    // Attempt to recover original clean slug
+    let targetSlug = restaurant.slug.replace(/-deleted-\d+$/, '');
+    const existing = await prisma.restaurant.findUnique({ where: { slug: targetSlug } });
+    if (existing && existing.id !== restaurant.id) {
+      targetSlug = `${targetSlug}-${Date.now().toString().slice(-4)}`;
+    }
+
+    const updated = await prisma.restaurant.update({
+      where: { id },
+      data: {
+        isDeleted: false,
+        deletedAt: null,
+        isOpen: true,
+        isOrderingEnabled: true,
+        slug: targetSlug,
+      },
+    });
+
+    if (restaurant.landingContent) {
+      await prisma.landingPageContent.update({
+        where: { id: restaurant.landingContent.id },
+        data: { isPublished: true },
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Cafe '${restaurant.name}' restored successfully.`,
+      restaurant: updated,
+    });
+  } catch (err: any) {
+    console.error('restoreRestaurant error:', err);
+    return res.status(500).json({ error: 'Failed to restore restaurant.' });
   }
 }
 
@@ -242,6 +432,125 @@ export async function getSubscriptionPlans(req: Request, res: Response) {
     return res.json({ plans });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch plans.' });
+  }
+}
+
+export async function updateSubscriptionPlan(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { name, price, billingInterval, maxTables, maxItems, features, isActive } = req.body;
+
+    const plan = await prisma.subscriptionPlan.findUnique({ where: { id } });
+    if (!plan) return res.status(404).json({ error: 'Plan not found.' });
+
+    const updated = await prisma.subscriptionPlan.update({
+      where: { id },
+      data: {
+        name: name !== undefined ? name : plan.name,
+        price: price !== undefined ? parseFloat(price) : plan.price,
+        billingInterval: billingInterval !== undefined ? billingInterval : plan.billingInterval,
+        maxTables: maxTables !== undefined ? parseInt(maxTables, 10) : plan.maxTables,
+        maxItems: maxItems !== undefined ? parseInt(maxItems, 10) : plan.maxItems,
+        features: features !== undefined ? (typeof features === 'string' ? features : JSON.stringify(features)) : plan.features,
+        isActive: isActive !== undefined ? !!isActive : plan.isActive,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user?.id,
+        action: 'SUPER_ADMIN_UPDATED_PLAN',
+        entityType: 'SubscriptionPlan',
+        entityId: id,
+        details: JSON.stringify({ name: updated.name, price: updated.price, billingInterval: updated.billingInterval }),
+      },
+    });
+
+    return res.json({ success: true, plan: updated });
+  } catch (err: any) {
+    console.error('updateSubscriptionPlan error:', err);
+    return res.status(500).json({ error: 'Failed to update plan.' });
+  }
+}
+
+export async function createSubscriptionPlan(req: Request, res: Response) {
+  try {
+    const { name, slug, price, billingInterval = 'MONTHLY', maxTables = 20, maxItems = 150, features = [] } = req.body;
+
+    if (!name || !slug || price === undefined) {
+      return res.status(400).json({ error: 'Name, slug, and price are required.' });
+    }
+
+    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const existing = await prisma.subscriptionPlan.findUnique({ where: { slug: cleanSlug } });
+    if (existing) {
+      return res.status(400).json({ error: 'Plan with this slug already exists.' });
+    }
+
+    const plan = await prisma.subscriptionPlan.create({
+      data: {
+        name,
+        slug: cleanSlug,
+        price: parseFloat(price),
+        billingInterval: billingInterval.toUpperCase() === 'YEARLY' ? 'YEARLY' : 'MONTHLY',
+        maxTables: parseInt(maxTables, 10),
+        maxItems: parseInt(maxItems, 10),
+        features: typeof features === 'string' ? features : JSON.stringify(features),
+        isActive: true,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user?.id,
+        action: 'SUPER_ADMIN_CREATED_PLAN',
+        entityType: 'SubscriptionPlan',
+        entityId: plan.id,
+        details: JSON.stringify({ name: plan.name, price: plan.price, billingInterval: plan.billingInterval }),
+      },
+    });
+
+    return res.status(201).json({ success: true, plan });
+  } catch (err: any) {
+    console.error('createSubscriptionPlan error:', err);
+    return res.status(500).json({ error: 'Failed to create plan.' });
+  }
+}
+
+export async function resetUserPassword(req: Request, res: Response) {
+  try {
+    const { userId } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user?.id,
+        action: 'SUPER_ADMIN_RESET_PASSWORD',
+        entityType: 'User',
+        entityId: user.id,
+        details: JSON.stringify({ targetEmail: user.email }),
+      },
+    });
+
+    return res.json({ success: true, message: `Password for ${user.email} updated successfully.` });
+  } catch (err: any) {
+    console.error('resetUserPassword error:', err);
+    return res.status(500).json({ error: 'Failed to reset password.' });
   }
 }
 
@@ -338,8 +647,8 @@ export async function getPlatformAnalytics(req: Request, res: Response) {
 
 // In-memory or database configuration store
 let platformSettingsState = {
-  platformName: 'Switea Restaurant Operating System',
-  supportEmail: 'support@switea.com',
+  platformName: 'RoastFuze Restaurant Operating System',
+  supportEmail: 'support@roastfuze.com',
   defaultCurrency: 'INR',
   maintenanceMode: false,
   razorpayActive: true,

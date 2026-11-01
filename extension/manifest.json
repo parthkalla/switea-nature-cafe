@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "RoastFuze Sync Bridge — Swiggy & Zomato",
+  "version": "1.0.1",
+  "description": "Bi-directional real-time order sync, rider tracking, and food-ready dispatch between Swiggy/Zomato and RoastFuze POS.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RoastFuze Sync Bridge"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": ["roastfuze_bridge.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "*://partner.swiggy.com/*",
+        "*://*.swiggy.com/*"
+      ],
+      "js": ["swiggy_sync.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://restaurant.zomato.com/*",
+        "*://*.zomato.com/*"
+      ],
+      "js": ["zomato_sync.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

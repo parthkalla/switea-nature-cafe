@@ -16,6 +16,7 @@ import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
 import { useCart } from '../../context/CartContext';
 import { api } from '../../services/api';
+import { CartCalculation } from '../../types';
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,17 +31,14 @@ export const CartPage: React.FC = () => {
   } = useCart();
 
   const [promoInput, setPromoInput] = useState(discountCode);
-  const [calculation, setCalculation] = useState<{
-    subtotal: number;
-    discountAmount: number;
-    taxAmount: number;
-    totalAmount: number;
-    discount?: { code: string; amount: number } | null;
-    discountError?: string | null;
-    minOrderAmount?: number | null;
-  } | null>(null);
+  const [calculation, setCalculation] = useState<CartCalculation | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
+
+  // Always reset scroll to top on mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
 
   useEffect(() => {
     async function calculate() {
@@ -51,7 +49,7 @@ export const CartPage: React.FC = () => {
       try {
         setCalculating(true);
         const res = await api.calculateCart({
-          restaurantSlug: 'switea',
+          restaurantSlug: 'roastfuze',
           items: items.map((i) => ({
             menuItemId: i.menuItemId,
             variantId: i.variantId,
@@ -92,13 +90,13 @@ export const CartPage: React.FC = () => {
           </div>
           <h1 className="font-serif text-3xl font-bold text-stone-900 mb-2">Your Cart is Empty</h1>
           <p className="text-sm text-stone-500 mb-8 max-w-sm">
-            Explore Switea’s handcrafted teas, artisan cold coffees, and garden delights to fill your tray.
+            Explore RoastFuze’s artisan espresso roasts, thick ice-cream frappes, stone-baked pizzas, and savory delights.
           </p>
           <Link
             to="/menu"
-            className="inline-flex items-center gap-2 bg-nature-900 text-white px-8 py-3.5 rounded-full font-bold text-sm shadow hover:bg-nature-950 transition-colors"
+            className="inline-flex items-center gap-2 bg-stone-900 text-white px-8 py-3.5 rounded-full font-bold text-sm shadow hover:bg-stone-800 transition-colors"
           >
-            <Utensils className="w-4 h-4 text-nature-300" />
+            <Utensils className="w-4 h-4 text-amber-300" />
             <span>Browse Full Menu</span>
           </Link>
         </main>
@@ -159,7 +157,7 @@ export const CartPage: React.FC = () => {
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs text-stone-400 font-serif">
-                          Switea
+                          RoastFuze
                         </div>
                       )}
                     </div>
@@ -295,6 +293,20 @@ export const CartPage: React.FC = () => {
                   <span className="font-medium text-stone-900">₹{calculation?.subtotal.toFixed(2) || '0.00'}</span>
                 </div>
 
+                {calculation && calculation.foodSubtotal > 0 && (
+                  <div className="flex items-center justify-between text-xs text-stone-500 pl-2">
+                    <span>🍔 Food items</span>
+                    <span>₹{calculation.foodSubtotal.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {calculation && calculation.coffeeSubtotal > 0 && (
+                  <div className="flex items-center justify-between text-xs text-stone-500 pl-2">
+                    <span>☕ Coffee & beverages</span>
+                    <span>₹{calculation.coffeeSubtotal.toFixed(2)}</span>
+                  </div>
+                )}
+
                 {calculation?.discountAmount ? (
                   <div className="flex items-center justify-between text-emerald-700 font-medium">
                     <span>Discount</span>
@@ -307,6 +319,19 @@ export const CartPage: React.FC = () => {
                   <span className="font-medium text-stone-900">₹{calculation?.taxAmount.toFixed(2) || '0.00'}</span>
                 </div>
               </div>
+
+              {calculation && (calculation.potentialFoodPoints > 0 || calculation.potentialCoffeePoints > 0) && (
+                <div className="p-3 bg-gradient-to-r from-amber-50 to-emerald-50 border border-amber-200/70 rounded-2xl text-xs space-y-1">
+                  <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Points to earn on this tray:</span>
+                  </span>
+                  <div className="flex justify-between text-[11px] text-stone-600 pt-0.5">
+                    <span>🍔 Food Loyalty: <strong className="text-emerald-800">+{calculation.potentialFoodPoints} Pts</strong></span>
+                    <span>☕ Coffee Loyalty: <strong className="text-amber-800">+{calculation.potentialCoffeePoints} Pts</strong></span>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-3 border-t border-stone-200 flex items-center justify-between">
                 <div>

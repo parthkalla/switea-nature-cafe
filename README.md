@@ -41,6 +41,34 @@ A complete, production-grade restaurant operating system built specifically for 
 - `/about` — Dedicated brand story and cafe nature highlights
 - `/gallery` — Cafe garden greenery, evening fairy lights, and culinary photography with lightbox
 - `/contact` — Verified address, opening hours, WhatsApp link, and directions map
+- `/loyalty` — Phone-number-only Food and Coffee points lookup (no customer login)
+
+### Loyalty and WhatsApp setup
+
+Orders automatically create/update a `CustomerLoyalty` record keyed by phone number. Food and Coffee points are stored separately, can be redeemed only against the matching item type, and are visible in Admin → Customer CRM along with recent orders and point transactions.
+
+For automatic WhatsApp loyalty messages, add the following to `backend/.env` after creating an approved Meta WhatsApp Cloud API template with six body variables (`name`, `order number`, `food earned`, `food balance`, `coffee earned`, `coffee balance`):
+
+```env
+WHATSAPP_ACCESS_TOKEN=your_meta_cloud_api_token
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_TEMPLATE_NAME=switea_loyalty_update
+WHATSAPP_TEMPLATE_LANGUAGE=en
+WHATSAPP_API_VERSION=v21.0
+```
+
+Without these credentials, order confirmation still includes a pre-filled `wa.me` message link for the customer. Never commit the access token.
+
+### Swiggy / Zomato POS bridge
+
+The backend accepts marketplace order webhooks at:
+
+```text
+POST /api/integrations/swiggy/orders
+POST /api/integrations/zomato/orders
+```
+
+Imported orders are stored with `source = SWIGGY` or `ZOMATO`, appear in Admin → Live Orders, trigger the kitchen realtime alert, and use the same status buttons. To push status back to a marketplace, configure that platform's approved POS/API endpoint in `SWIGGY_ORDER_STATUS_URL` or `ZOMATO_ORDER_STATUS_URL` along with its token. The exact endpoint, payload and signature must come from the platform-approved seller/POS integration; do not use browser scraping or unofficial partner-app automation.
 - `/privacy-policy` & `/terms-and-conditions` — Business terms and privacy notices
 
 ### Restaurant Administration

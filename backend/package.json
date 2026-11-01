@@ -1,7 +1,7 @@
 {
-  "name": "switea-backend",
+  "name": "roastfuze-backend",
   "version": "1.0.0",
-  "description": "Backend API and WebSocket server for Switea Nature Cafe",
+  "description": "Backend API and WebSocket server for RoastFuze Coffee Bar - Musical Balcony Cafe",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "node dist/prisma/seed.js",
     "test": "vitest run"
   },
   "dependencies": {

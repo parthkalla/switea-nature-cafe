@@ -19,6 +19,7 @@ import {
   Calendar,
   Layers,
   Heart,
+  Music,
   ExternalLink,
 } from 'lucide-react';
 import { Navbar } from '../../components/layout/Navbar';
@@ -26,8 +27,13 @@ import { Footer } from '../../components/layout/Footer';
 import { api } from '../../services/api';
 import { MenuItemCard } from '../../components/menu/MenuItemCard';
 import { MenuItem, MenuCategory, Review, GalleryImage, LandingPageContent, Restaurant } from '../../types';
+import { buildGoogleMapsEmbedUrl } from '../../utils/mapHelper';
+import { useFoodParallax } from '../../hooks/useFoodParallax';
+import { getTenantSlug } from '../../utils/tenantHelper';
+import { THEME_PRESETS, ThemeTemplateId } from '../../utils/themePresets';
 
 export const LandingPage: React.FC = () => {
+  useFoodParallax();
   const [data, setData] = useState<{
     restaurant: Restaurant;
     landingContent: LandingPageContent;
@@ -39,7 +45,7 @@ export const LandingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Day to Evening Ambience Switcher
-  const [timeMood, setTimeMood] = useState<'day' | 'evening'>('day');
+  const [timeMood, setTimeMood] = useState<'day' | 'evening'>('evening');
 
   // Featured Menu Filter
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
@@ -47,7 +53,8 @@ export const LandingPage: React.FC = () => {
   useEffect(() => {
     async function loadLanding() {
       try {
-        const res = await api.getLandingPage('switea');
+        const slug = getTenantSlug();
+        const res = await api.getLandingPage(slug);
         setData(res);
       } catch (err) {
         console.error('Failed to load landing content:', err);
@@ -62,9 +69,9 @@ export const LandingPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-cream-100 flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-2 border-nature-900 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="font-serif text-lg font-bold text-nature-950">Switea Nature Cafe</p>
-          <p className="text-xs uppercase tracking-widest text-stone-500">Garden Sanctuary • Jaipur</p>
+          <div className="w-10 h-10 border-2 border-amber-900 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="font-serif text-lg font-bold text-stone-900">RoastFuze Coffee Bar</p>
+          <p className="text-xs uppercase tracking-widest text-amber-800">Musical Balcony Cafe • Jaipur</p>
         </div>
       </div>
     );
@@ -72,51 +79,64 @@ export const LandingPage: React.FC = () => {
 
   const { restaurant, landingContent, gallery, reviews, categories, bestsellers } = data || {};
 
-  // Verified spaces in the real cafe
-  const cafeSpaces = [
+  const isCustom = restaurant && restaurant.slug && restaurant.slug !== 'roastfuze';
+  const currentThemeId = (restaurant?.themeTemplate && restaurant.themeTemplate in THEME_PRESETS
+    ? restaurant.themeTemplate
+    : 'BALCONY_MUSICAL') as ThemeTemplateId;
+  const baseTheme = THEME_PRESETS[currentThemeId];
+
+  // Dynamic theme colors merged from database overrides
+  const theme = {
+    ...baseTheme,
+    primaryColor: restaurant?.primaryColor || baseTheme.primaryColor,
+    secondaryColor: restaurant?.secondaryColor || baseTheme.secondaryColor,
+    accentColor: restaurant?.accentColor || baseTheme.accentColor,
+    bgCream: restaurant?.bgCream || baseTheme.bgCream || '#fdfbf7',
+  };
+
+  const photoLayout = (restaurant?.photoLayout || 'bento') as 'bento' | 'magazine' | 'cinematic' | 'split' | 'zen';
+
+  // Dynamic spaces tailored to cafe theme
+  const cafeSpaces = isCustom ? theme.spaces : [
     {
-      id: 'lawn',
-      name: 'The Central Garden Lawn',
-      subtitle: 'Open-Air Grass Dining',
-      atmosphere: 'Breezy, natural grass, sun-dappled foliage & unhurried quietude',
-      bestFor: 'Morning Chai, Casual Banter, Reading & Lazy Brunches',
-      timing: 'Best experienced 10:00 AM – 04:30 PM',
-      capacity: '4 – 6 guests per table • Table 01 & Table 02',
-      image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80',
-      badge: 'Open Lawn',
+      name: 'The Musical Sunset Balcony',
+      subtitle: 'Open-Air Balcony Seating',
+      atmosphere: 'Breezy sunset vistas over Gandhi Path West, ambient fairy lights, and live acoustic chords',
+      bestFor: 'Sunset Dates, Thick Frappes, Live Acoustic Evenings & Relaxed Chats',
+      timing: 'Best experienced 04:30 PM – 11:00 PM',
+      capacity: '2 – 4 guests per table • Table B01 & Table B02',
+      image: '/images/roastfuze_interior.jpg',
+      badge: 'Musical Balcony',
     },
     {
-      id: 'pergola',
-      name: 'Sheltered Cabana Pergola',
-      subtitle: 'Timber Canopies & Plush Benches',
-      atmosphere: 'Deep wooden shade, group intimacy, protected from direct sun',
-      bestFor: 'Family Gatherings, Birthday Meetups & Private Discussions',
-      timing: 'Comfortable all day • Ambient fairy lights by night',
-      capacity: '6 – 8 guests per cabana • Table 03',
-      image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
-      badge: 'Pergola Cabana',
+      name: 'Acoustic Stage & Artist Corner',
+      subtitle: 'Live Jamming & Musical Nook',
+      atmosphere: 'Acoustic guitar melodies, artist hours, cozy warm lighting, and soulful live performances',
+      bestFor: 'Music Lovers, Artist Hours, Espresso Sips & Musical Gatherings',
+      timing: 'Evenings 06:00 PM – 10:30 PM',
+      capacity: '4 – 6 guests • Table B02 & Table L05',
+      image: '/images/roastfuze_corner.jpg',
+      badge: 'Acoustic Corner',
     },
     {
-      id: 'rooftop',
-      name: 'The Rooftop Deck',
-      subtitle: 'Elevated Open Sky Terrace',
-      atmosphere: 'Open Jaipur sky, cool evening cross-breezes & sunset vistas',
-      bestFor: 'Sunset Coolers, Stargazing & Late Evening Dinners',
-      timing: 'Magnificent from 05:30 PM – 11:30 PM',
-      capacity: '6 – 8 guests • Table 05',
-      image: 'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=1200&q=80',
-      badge: 'Rooftop Deck',
-    },
-    {
-      id: 'lounge',
-      name: 'The Indoor AC Lounge',
-      subtitle: 'Climate-Controlled Glass Retreat',
-      atmosphere: 'Quiet, air-conditioned calm with expansive garden views',
-      bestFor: 'Remote Laptop Work, Quiet Meetings & Midday Respite',
-      timing: 'Available all hours • Climate controlled',
-      capacity: '2 – 4 guests • Table 04',
-      image: 'https://images.unsplash.com/photo-1559925393-8be0ec4767c8?auto=format&fit=crop&w=1200&q=80',
+      name: 'The Artisan Coffee Lounge',
+      subtitle: 'Warm Wooden Indoor Coffee Bar',
+      atmosphere: 'Rich aroma of freshly ground espresso roasts, plush booths & quiet intimacy',
+      bestFor: 'Laptop Work, Espresso Tasting, Pizza Feasts & Catch-ups',
+      timing: 'Open all day from 10:00 AM – 11:00 PM',
+      capacity: '4 – 6 guests • Table L04',
+      image: '/images/roastfuze_pasta_neon.jpg',
       badge: 'Indoor Lounge',
+    },
+    {
+      name: 'Balcony High-Top Bar',
+      subtitle: 'Elevated Railing Stools',
+      atmosphere: 'Front-row balcony breezes overlooking Vaishali Nagar’s vibrant evening pulse',
+      bestFor: 'Quick Sips, Ice-Cream Frappes, Solo Reading & Sunset Photography',
+      timing: 'Available all hours • Breezy throughout',
+      capacity: '2 guests • Table B03',
+      image: '/images/roastfuze_shake_sandwich.jpg',
+      badge: 'Balcony High-Top',
     },
   ];
 
@@ -130,44 +150,56 @@ export const LandingPage: React.FC = () => {
         });
 
   return (
-    <div className="min-h-screen bg-cream-100 text-stone-800 flex flex-col selection:bg-nature-200">
-      <Navbar />
+    <div
+      className="min-h-screen text-stone-800 flex flex-col selection:bg-amber-200"
+      style={{ backgroundColor: theme.bgCream || '#fdfbf7' }}
+    >
+      <Navbar restaurant={restaurant} />
 
       {/* Optional Top Announcement Strip */}
       {landingContent?.announcementActive && landingContent.announcementText && (
-        <div className="bg-nature-950 text-cream-200 text-xs py-2 px-4 text-center font-medium border-b border-nature-900 flex items-center justify-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-nature-300 flex-shrink-0" />
+        <div className="bg-stone-950 text-cream-200 text-xs py-2 px-4 text-center font-medium border-b border-stone-800 flex items-center justify-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
           <span>{landingContent.announcementText}</span>
         </div>
       )}
 
-      {/* 1. HERO: Immersive, Asymmetrical Outdoor Garden Cafe Hero */}
+      {/* 1. HERO: Immersive Musical Balcony Hero */}
       <section className="relative pt-12 pb-16 lg:pt-20 lg:pb-24 border-b border-stone-200/70 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
             
             {/* Left Editorial Narrative */}
             <div className="lg:col-span-7 space-y-6 text-left">
-              <div className="inline-flex items-center gap-2.5 px-3.5 py-1 rounded-full bg-stone-200/60 border border-stone-300/80 text-stone-800 text-[11px] font-bold tracking-[0.18em] uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-nature-700" />
-                <span>Jaipur Outpost • Outdoor Garden Cafe</span>
+              <div
+                className="inline-flex items-center gap-2.5 px-3.5 py-1 rounded-full text-[11px] font-bold tracking-[0.18em] uppercase border"
+                style={{
+                  backgroundColor: `${theme.primaryColor}15`,
+                  borderColor: `${theme.primaryColor}40`,
+                  color: theme.primaryColor,
+                }}
+              >
+                <span>{theme.badge}</span>
+                <span>•</span>
+                <span>{restaurant?.city || 'Jaipur'} • {restaurant?.tagLine || theme.tagLine}</span>
               </div>
 
-              <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold text-nature-950 leading-[1.12] tracking-tight">
-                An Open-Air Sanctuary for Slow Sips & Warm Gatherings.
+              <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold text-stone-900 leading-[1.12] tracking-tight">
+                {landingContent?.heroTitle || (isCustom ? `${restaurant?.name} - ${theme.tagLine}` : 'A Symphony of Roasted Aromas, Golden Sunsets & Live Melodies.')}
               </h1>
 
               <p className="text-base sm:text-lg text-stone-600 font-normal max-w-xl leading-relaxed">
-                Nestled amidst mature foliage in Karni Vihar, Gandhipath, Switea invites you to escape crowded indoor spaces. Savor authentic slow-simmered earthen kulhad chai, stone-baked bites, and artisan coolers beneath open skies, shaded timber pergolas, and evening fairy lights.
+                {landingContent?.heroSubtitle || (isCustom ? restaurant?.description || theme.heroSubtitle : 'Perched high on Gandhi Path West in Vaishali Nagar, RoastFuze blends the magic of an open-air musical balcony with the craft of an authentic specialty coffee bar. Savor freshly ground espresso roasts, velvety ice-cream frappes, stone-baked pizzas, and Belgian waffles while enjoying acoustic live music under twinkling fairy lights.')}
               </p>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
                 <Link
                   to="/menu"
-                  className="inline-flex items-center justify-center gap-2.5 bg-nature-900 text-white hover:bg-nature-950 px-7 py-3.5 rounded-xl font-bold text-sm shadow-soft transition-all duration-200 hover:-translate-y-0.5"
+                  className="inline-flex items-center justify-center gap-2.5 text-white px-7 py-3.5 rounded-xl font-bold text-sm shadow-soft transition-all duration-200 hover:-translate-y-0.5"
+                  style={{ backgroundColor: theme.primaryColor || '#1c1917' }}
                 >
-                  <UtensilsCrossed className="w-4 h-4 text-nature-300" />
+                  <UtensilsCrossed className="w-4 h-4 text-amber-300" />
                   <span>Explore Menu</span>
                 </Link>
 
@@ -176,63 +208,194 @@ export const LandingPage: React.FC = () => {
                   className="inline-flex items-center justify-center gap-2 bg-white text-stone-900 border border-stone-300 hover:border-stone-800 px-7 py-3.5 rounded-xl font-bold text-sm shadow-xs transition-all duration-200 hover:bg-stone-50"
                 >
                   <Compass className="w-4 h-4 text-stone-700" />
-                  <span>Visit Our Garden</span>
+                  <span>Find Location</span>
                 </a>
               </div>
 
               {/* Highlights Micro-list */}
               <div className="pt-4 flex flex-wrap items-center gap-y-2 gap-x-6 text-xs text-stone-600 font-medium border-t border-stone-200/70">
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-nature-800" />
-                  <span>Clay Kulhad Brews</span>
+                  <CheckCircle2 className="w-3.5 h-3.5" style={{ color: theme.secondaryColor }} />
+                  <span>{landingContent?.aboutHighlight1 || theme.aboutHighlights[0]}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-nature-800" />
-                  <span>Lawn & Pergola Seating</span>
+                  <CheckCircle2 className="w-3.5 h-3.5" style={{ color: theme.secondaryColor }} />
+                  <span>{landingContent?.aboutHighlight2 || theme.aboutHighlights[1]}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-nature-800" />
-                  <span>Table QR Digital Ordering</span>
+                  <CheckCircle2 className="w-3.5 h-3.5" style={{ color: theme.secondaryColor }} />
+                  <span>{landingContent?.aboutHighlight3 || theme.aboutHighlights[2]}</span>
                 </div>
               </div>
             </div>
 
-            {/* Right Asymmetrical Landscape Hero Visual */}
+            {/* Right Hero Visuals — Dynamic Layout System */}
             <div className="lg:col-span-5 relative">
-              <div className="relative rounded-3xl overflow-hidden border border-stone-200 shadow-card bg-stone-100 aspect-[4/3] lg:aspect-[4/5] group">
-                <img
-                  src={
-                    landingContent?.heroImage ||
-                    'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1600&q=80'
-                  }
-                  alt="Switea Outdoor Garden Cafe Jaipur"
-                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700 ease-out"
-                />
-                
-                {/* Subtle Editorial Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-nature-950/80 via-nature-950/20 to-transparent flex flex-col justify-end p-6 text-white">
-                  <span className="text-[10px] tracking-[0.2em] uppercase font-bold text-nature-300 mb-1">
-                    Gandhipath • Vaishali Nagar
-                  </span>
-                  <p className="font-serif text-xl sm:text-2xl font-bold leading-tight">
-                    Shaded Pergolas & Natural Grass
-                  </p>
-                  <p className="text-xs text-stone-300 mt-1">
-                    An outdoor cafe created for unhurried conversation.
-                  </p>
-                </div>
-              </div>
+              {(() => {
+                const heroMainImg =
+                  landingContent?.heroImage ||
+                  restaurant?.coverImage ||
+                  theme.spaces[0]?.image ||
+                  'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1600&q=80';
+
+                if (photoLayout === 'bento') {
+                  return (
+                    <div className="grid grid-cols-12 gap-3 aspect-[4/3] lg:aspect-[4/5]">
+                      <div className="col-span-7 relative rounded-3xl overflow-hidden border border-stone-200 shadow-card bg-stone-100 group">
+                        <img
+                          src={heroMainImg}
+                          alt={restaurant?.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-transparent flex flex-col justify-end p-4 text-white">
+                          <span className="text-[9px] tracking-widest uppercase font-bold text-amber-400">
+                            {restaurant?.city || 'Jaipur'}
+                          </span>
+                          <p className="font-serif font-bold text-base leading-tight truncate">{restaurant?.name}</p>
+                          <p className="text-[10px] text-stone-300 truncate mt-0.5">{restaurant?.tagLine || theme.tagLine}</p>
+                        </div>
+                      </div>
+
+                      <div className="col-span-5 grid grid-rows-2 gap-3">
+                        <div className="relative rounded-2xl overflow-hidden border border-stone-200 shadow-xs bg-stone-100 group">
+                          <img
+                            src={cafeSpaces[1]?.image || heroMainImg}
+                            alt="Ambience"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          />
+                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold text-white">
+                            {cafeSpaces[1]?.badge || 'Lounge'}
+                          </div>
+                        </div>
+                        <div className="relative rounded-2xl overflow-hidden border border-stone-200 shadow-xs bg-stone-100 group">
+                          <img
+                            src={cafeSpaces[2]?.image || heroMainImg}
+                            alt="Specialty"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          />
+                          <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold text-stone-900">
+                            {cafeSpaces[2]?.badge || 'Fresh Brews'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (photoLayout === 'magazine') {
+                  return (
+                    <div className="relative aspect-[4/3] lg:aspect-[4/5] pb-8 pr-6">
+                      <div className="w-[88%] h-[88%] rounded-3xl overflow-hidden border-2 border-stone-800 shadow-xl bg-stone-100 group">
+                        <img
+                          src={heroMainImg}
+                          alt={restaurant?.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute top-4 left-4 bg-stone-900/90 backdrop-blur-md text-white text-[10px] font-serif px-3 py-1 rounded-full uppercase tracking-widest border border-white/20">
+                          Signature Concept
+                        </div>
+                      </div>
+                      <div className="absolute bottom-0 right-0 w-[55%] aspect-[4/3] bg-white p-2 rounded-2xl shadow-2xl border border-stone-200 transform rotate-2 hover:rotate-0 transition-transform duration-300">
+                        <div className="w-full h-[75%] rounded-xl overflow-hidden bg-stone-100">
+                          <img
+                            src={cafeSpaces[1]?.image || heroMainImg}
+                            alt="Detail"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="p-1 text-center">
+                          <span className="font-serif italic text-[11px] font-bold text-stone-900 truncate block">
+                            {cafeSpaces[1]?.name || 'Curated Corner'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (photoLayout === 'cinematic') {
+                  return (
+                    <div className="relative rounded-3xl overflow-hidden border-2 border-stone-900 shadow-2xl bg-black aspect-[4/3] lg:aspect-[4/5] group">
+                      <img
+                        src={heroMainImg}
+                        alt={restaurant?.name}
+                        className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/40 flex flex-col justify-between p-6 text-white">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-mono tracking-widest px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30">
+                            🎬 Panoramic View
+                          </span>
+                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-stone-950">
+                            ★ 4.9 Rating
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-serif text-2xl font-bold leading-tight">{restaurant?.name}</p>
+                          <p className="text-xs text-stone-300 mt-1">{restaurant?.tagLine || theme.tagLine}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (photoLayout === 'split') {
+                  return (
+                    <div className="relative aspect-[4/3] lg:aspect-[4/5] flex items-center justify-center">
+                      <div className="w-[75%] h-[80%] rounded-3xl overflow-hidden border-2 border-stone-900 shadow-lg transform -rotate-3 hover:-rotate-1 transition-transform duration-300">
+                        <img
+                          src={heroMainImg}
+                          alt={restaurant?.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div
+                        className="absolute -bottom-2 -right-2 w-[55%] h-[60%] rounded-2xl overflow-hidden border-2 shadow-2xl transform rotate-6 hover:rotate-3 transition-transform duration-300"
+                        style={{ borderColor: theme.accentColor }}
+                      >
+                        <img
+                          src={cafeSpaces[1]?.image || heroMainImg}
+                          alt="Space"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-2 left-2 bg-stone-950/80 px-2 py-0.5 rounded text-[9px] text-white font-bold">
+                          {cafeSpaces[1]?.badge || 'Specialty'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Default / zen layout
+                return (
+                  <div className="relative aspect-square rounded-2xl overflow-hidden border border-stone-300 shadow-xs bg-white p-3 group">
+                    <div className="w-full h-full rounded-xl overflow-hidden bg-stone-100 relative">
+                      <img
+                        src={heroMainImg}
+                        alt={restaurant?.name}
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-700"
+                      />
+                      <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-md px-3 py-1 rounded-lg border border-stone-200 text-stone-900 text-xs font-serif font-bold">
+                        {restaurant?.name}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Editorial Floating Tag */}
-              <div className="absolute -bottom-5 -left-4 bg-white/95 backdrop-blur-md border border-stone-200 rounded-2xl p-4 shadow-soft hidden sm:flex items-center gap-3 max-w-xs">
-                <div className="w-10 h-10 rounded-xl bg-nature-100 flex items-center justify-center text-nature-900 flex-shrink-0">
-                  <Coffee className="w-5 h-5" />
+              <div className="absolute -bottom-5 -left-4 bg-white/95 backdrop-blur-md border border-stone-200 rounded-2xl p-3.5 shadow-soft hidden sm:flex items-center gap-3 max-w-xs z-10">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+                  style={{ backgroundColor: theme.primaryColor }}
+                >
+                  <Coffee className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="font-serif font-bold text-sm text-stone-900 block leading-tight">
-                    Terracotta Clay Chai
+                  <span className="font-serif font-bold text-xs text-stone-900 block leading-tight truncate">
+                    {bestsellers?.[0]?.name || 'Specialty Cold Brew'}
                   </span>
-                  <span className="text-[11px] text-stone-500">Fresh Adrak, Cardamom & Cold Coffees</span>
+                  <span className="text-[10px] text-stone-500">Handcrafted Fresh Daily</span>
                 </div>
               </div>
             </div>
@@ -245,38 +408,38 @@ export const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-stone-200 border-y sm:border border-stone-200 bg-white rounded-2xl shadow-xs py-4 px-2 sm:px-4">
             
             <div className="p-3 sm:px-4 flex items-start gap-3">
-              <MapPin className="w-4 h-4 text-nature-800 mt-0.5 flex-shrink-0" />
+              <MapPin className="w-4 h-4 text-amber-800 mt-0.5 flex-shrink-0" />
               <div>
-                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 block">Location</span>
-                <span className="text-xs font-semibold text-stone-900 block">64A Karni Vihar, Gandhipath</span>
-                <span className="text-[11px] text-stone-500">Near Vaishali Nagar, Jaipur</span>
+                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 block">Address</span>
+                <span className="text-xs font-semibold text-stone-900 block">A-26 Vivek Vihar, Gandhi Path W</span>
+                <span className="text-[11px] text-stone-500">Vaishali Nagar, Jaipur</span>
               </div>
             </div>
 
             <div className="p-3 sm:px-4 flex items-start gap-3">
-              <Clock className="w-4 h-4 text-nature-800 mt-0.5 flex-shrink-0" />
+              <Clock className="w-4 h-4 text-amber-800 mt-0.5 flex-shrink-0" />
               <div>
-                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 block">Opening Hours</span>
-                <span className="text-xs font-semibold text-stone-900 block">10:00 AM – 11:30 PM</span>
-                <span className="text-[11px] text-stone-500">Open 7 Days a Week</span>
+                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 block">Balcony Timings</span>
+                <span className="text-xs font-semibold text-stone-900 block">10:00 AM – 11:00 PM</span>
+                <span className="text-[11px] text-stone-500">Live Music Every Evening</span>
               </div>
             </div>
 
             <div className="p-3 sm:px-4 flex items-start gap-3">
-              <Layers className="w-4 h-4 text-nature-800 mt-0.5 flex-shrink-0" />
+              <Layers className="w-4 h-4 text-amber-800 mt-0.5 flex-shrink-0" />
               <div>
                 <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 block">Environments</span>
-                <span className="text-xs font-semibold text-stone-900 block">Lawn, Pergola & Rooftop</span>
-                <span className="text-[11px] text-stone-500">Open-Air & Shaded Zones</span>
+                <span className="text-xs font-semibold text-stone-900 block">Musical Balcony & Lounge</span>
+                <span className="text-[11px] text-stone-500">Sunset Deck & High-Tops</span>
               </div>
             </div>
 
             <div className="p-3 sm:px-4 flex items-start gap-3">
-              <Phone className="w-4 h-4 text-nature-800 mt-0.5 flex-shrink-0" />
+              <Phone className="w-4 h-4 text-amber-800 mt-0.5 flex-shrink-0" />
               <div>
-                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 block">Inquiries</span>
-                <a href="tel:+919555495454" className="text-xs font-semibold text-stone-900 hover:underline block">
-                  +91 95554 95454
+                <span className="text-[10px] uppercase tracking-wider font-bold text-stone-400 block">Balcony Desk</span>
+                <a href="tel:+919352182562" className="text-xs font-semibold text-stone-900 hover:underline block">
+                  +91 93521 82562
                 </a>
                 <span className="text-[11px] text-stone-500">WhatsApp & Direct Calls</span>
               </div>
@@ -286,133 +449,133 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2. GARDEN EXPERIENCE: Alternating Image & Narrative Layout */}
+      {/* 2. BALCONY EXPERIENCE: Alternating Image & Narrative Layout */}
       <section id="experience" className="py-20 lg:py-28 bg-white border-b border-stone-200/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="max-w-2xl mx-auto text-center mb-16 lg:mb-20">
-            <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
-              The Outdoor Environment
+            <span className="text-xs uppercase tracking-[0.2em] font-bold block mb-2" style={{ color: theme.secondaryColor }}>
+              {isCustom ? theme.label : 'The Musical Balcony Concept'}
             </span>
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-stone-900 tracking-tight leading-tight">
-              Designed for Natural Light, Fresh Air & Unhurried Dining.
+              {isCustom ? theme.aboutTitle : 'Where Specialty Coffee Meets Live Acoustic Chords.'}
             </h2>
             <p className="text-sm sm:text-base text-stone-600 mt-3 leading-relaxed">
-              We shaped Switea as a living outdoor retreat rather than a conventional boxed cafe. Every seating pocket connects you to fresh Jaipur breezes, green lawns, and warm hospitality.
+              {landingContent?.aboutText || (isCustom ? theme.aboutText : 'We created RoastFuze as an open-air artistic sanctuary. Every balcony table offers sunset skies, ambient evening fairy lights, handcrafted roasts, and soulful acoustic melodies.')}
             </p>
           </div>
 
           <div className="space-y-20 lg:space-y-28">
 
-            {/* Alternating Block 1: The Open Lawn */}
+            {/* Alternating Block 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
               <div className="lg:col-span-7">
                 <div className="rounded-3xl overflow-hidden border border-stone-200 aspect-[16/10] shadow-soft group">
                   <img
-                    src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80"
-                    alt="Switea Garden Lawn Seating"
+                    src={isCustom ? (cafeSpaces[0]?.image || '/images/roastfuze_interior.jpg') : '/images/roastfuze_interior.jpg'}
+                    alt={isCustom ? cafeSpaces[0]?.name : 'Sunset Balcony Seating'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 </div>
               </div>
               <div className="lg:col-span-5 space-y-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-nature-700 block">
-                  Experience 01 • Open Air
+                <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: theme.secondaryColor }}>
+                  {isCustom ? `Atmosphere 01 • ${cafeSpaces[0]?.badge}` : 'Experience 01 • Open-Air Balcony'}
                 </span>
                 <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug">
-                  The Central Lawn & Foliage Canopies
+                  {isCustom ? cafeSpaces[0]?.name : 'Sunset Skies & Fairy-Lit Balcony Railings'}
                 </h3>
                 <p className="text-sm text-stone-600 leading-relaxed">
-                  Soft green turf underfoot, shaded by natural trees that break the midday glare into gentle dancing sunbeams. Tables are deliberately spaced with generous breathing room, creating an unhurried haven for morning chai dates, leisurely catch-ups with old friends, and quiet afternoon reads.
+                  {isCustom ? cafeSpaces[0]?.atmosphere : 'Catch the golden hour breeze while sipping thick ice-cream frappes or steaming hot cappuccinos. Our musical balcony looks out over the Jaipur skyline, creating an intimate space for dates, friend reunions, and acoustic evenings.'}
                 </p>
                 <div className="pt-2 space-y-2 text-xs font-medium text-stone-700">
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Generous spacing between tables for conversational privacy</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Ideal for: ${cafeSpaces[0]?.bestFor}` : 'Open-air balcony seating with Jaipur golden-hour views'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Lush grass lawn open to natural morning sun and cross-breezes</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Seating capacity: ${cafeSpaces[0]?.capacity}` : 'Warm fairy lights and comfortable intimate seating'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Table QR ordering right from your lawn seat</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Prime hours: ${cafeSpaces[0]?.timing}` : 'Table QR ordering right from your balcony seat'}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Alternating Block 2: Sheltered Pergola Cabana */}
+            {/* Alternating Block 2 */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
               <div className="lg:col-span-5 order-2 lg:order-1 space-y-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-nature-700 block">
-                  Experience 02 • Shaded Seating
+                <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: theme.secondaryColor }}>
+                  {isCustom ? `Atmosphere 02 • ${cafeSpaces[1]?.badge}` : 'Experience 02 • Acoustic Vibes'}
                 </span>
                 <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug">
-                  Timber Pergolas & Cushioned Cabanas
+                  {isCustom ? cafeSpaces[1]?.name : 'Live Acoustic Music & Artist Jamming'}
                 </h3>
                 <p className="text-sm text-stone-600 leading-relaxed">
-                  Crafted with warm natural timber, our canopied pergolas provide deep shade throughout sunny afternoons. Outfitted with comfortable bench seating, they offer the perfect sanctuary for family brunches, group discussions, and relaxed study sessions shielded from direct heat.
+                  {isCustom ? cafeSpaces[1]?.atmosphere : 'Hosting local musicians, guitarists, and singer-songwriters. Enjoy unplugged acoustic tunes, soulful melodies, and vibrant artist hours while indulging in stone-baked pizzas and warm Belgian waffles.'}
                 </p>
                 <div className="pt-2 space-y-2 text-xs font-medium text-stone-700">
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Comfortable cushioned group benches for 6 to 8 guests</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Ideal for: ${cafeSpaces[1]?.bestFor}` : 'Live acoustic jamming sessions every evening'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Protected overhead shade without sacrificing outdoor air</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Seating: ${cafeSpaces[1]?.capacity}` : 'A platform for local artists, musicians & creatives'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Ideal for informal meetings and shared feasts</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Hours: ${cafeSpaces[1]?.timing}` : 'Cozy soulful atmosphere that stays with you'}</span>
                   </div>
                 </div>
               </div>
               <div className="lg:col-span-7 order-1 lg:order-2">
                 <div className="rounded-3xl overflow-hidden border border-stone-200 aspect-[16/10] shadow-soft group">
                   <img
-                    src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80"
-                    alt="Switea Pergola Cabana Seating"
+                    src={isCustom ? (cafeSpaces[1]?.image || '/images/roastfuze_pasta_neon.jpg') : '/images/roastfuze_pasta_neon.jpg'}
+                    alt={isCustom ? cafeSpaces[1]?.name : 'Acoustic Artist Hours'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Alternating Block 3: Twilight Fairy Lights */}
+            {/* Alternating Block 3 */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
               <div className="lg:col-span-7">
                 <div className="rounded-3xl overflow-hidden border border-stone-200 aspect-[16/10] shadow-soft group">
                   <img
-                    src="https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=1200&q=80"
-                    alt="Switea Evening Festoon Fairy Lights"
+                    src={isCustom ? (cafeSpaces[2]?.image || '/images/roastfuze_coffee_cup.png') : '/images/roastfuze_coffee_cup.png'}
+                    alt={isCustom ? cafeSpaces[2]?.name : 'Signature Brews & Craft'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 </div>
               </div>
               <div className="lg:col-span-5 space-y-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-nature-700 block">
-                  Experience 03 • Twilight Ambience
+                <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: theme.secondaryColor }}>
+                  {isCustom ? `Atmosphere 03 • ${cafeSpaces[2]?.badge}` : 'Experience 03 • Artisan Coffee Craft'}
                 </span>
                 <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug">
-                  The Twilight Garden & Festoon Glow
+                  {isCustom ? cafeSpaces[2]?.name : 'Artisan Espresso Roasts & Thick Frappes'}
                 </h3>
                 <p className="text-sm text-stone-600 leading-relaxed">
-                  When sunset sweeps over Jaipur, the garden transforms. Hand-strung warm filament bulbs ignite gently through the tree branches, the desert heat subsides into a crisp evening breeze, and steaming clay kulhads warm your palms under an ambient star-lit canopy.
+                  {isCustom ? cafeSpaces[2]?.atmosphere : 'From bold double-shot Americanos and silky flat whites to thick ice-cream blended Oreo, Hazelnut, and Biscoff frappes, every cup is crafted with precision by baristas who genuinely care about coffee.'}
                 </p>
                 <div className="pt-2 space-y-2 text-xs font-medium text-stone-700">
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Warm golden festoon bulbs and intimate candlelit mood</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Ideal for: ${cafeSpaces[2]?.bestFor}` : 'Specialty roasted coffee beans ground fresh per order'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Cool evening air paired with piping hot earthen kulhad tea</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Capacity: ${cafeSpaces[2]?.capacity}` : 'Rich frappes blended with premium gourmet ice creams'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-nature-800" />
-                    <span>Open till 11:30 PM for quiet midnight conversations</span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                    <span>{isCustom ? `Recommended hours: ${cafeSpaces[2]?.timing}` : 'Plant-based oat & almond milk choices available'}</span>
                   </div>
                 </div>
               </div>
@@ -422,27 +585,28 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. PHOTO COMPOSITION: Asymmetrical Editorial Gallery */}
-      <section className="py-20 lg:py-28 bg-cream-100 border-b border-stone-200/70">
+      {/* 3. PHOTO COMPOSITION: Atmosphere Gallery */}
+      <section className="py-20 lg:py-28 border-b border-stone-200/70" style={{ backgroundColor: theme.bgCream }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 lg:mb-16">
             <div className="max-w-xl">
-              <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
+              <span className="text-xs uppercase tracking-[0.2em] font-bold block mb-2" style={{ color: theme.secondaryColor }}>
                 Atmosphere & Perspectives
               </span>
               <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight">
-                Moments in the Garden
+                {isCustom ? `Moments at ${restaurant?.name}` : 'Moments at RoastFuze'}
               </h2>
               <p className="text-sm text-stone-600 mt-2">
-                An unhurried visual narrative of everyday pauses, conversations, and garden hospitality.
+                {isCustom ? `A glimpse into our serene ambience, artisan beverages, and culinary moments.` : 'A glimpse into sunset balcony views, thick frappes, stone-baked pizzas, and live musical sessions.'}
               </p>
             </div>
             <Link
-              to="/gallery"
-              className="mt-4 md:mt-0 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-nature-900 hover:text-nature-950 hover:underline"
+              to="/menu"
+              className="mt-4 md:mt-0 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider hover:underline"
+              style={{ color: theme.primaryColor }}
             >
-              <span>View Full Garden Collection</span>
+              <span>Explore Digital Menu</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -454,14 +618,14 @@ export const LandingPage: React.FC = () => {
             <div className="lg:col-span-8 space-y-3">
               <div className="rounded-3xl overflow-hidden border border-stone-200/90 shadow-soft aspect-[16/10] bg-stone-200 group">
                 <img
-                  src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1600&q=80"
-                  alt="The Central Lawn at Golden Hour"
+                  src={gallery?.[0]?.imageUrl || (isCustom ? cafeSpaces[0]?.image : '/images/dishes/cafe_balcony_hd.jpg')}
+                  alt={`${restaurant?.name} Atmosphere`}
                   className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
                 />
               </div>
               <div className="flex items-center justify-between text-xs text-stone-500 px-1">
-                <span className="font-serif italic text-stone-800 text-sm">The Central Lawn at Golden Hour</span>
-                <span className="font-mono text-[11px]">05:45 PM • Gandhipath Jaipur</span>
+                <span className="font-serif italic text-stone-800 text-sm">{isCustom ? cafeSpaces[0]?.name : 'The Warm Coffee Lounge & Musical Balcony'}</span>
+                <span className="font-mono text-[11px]">{restaurant?.name} • {restaurant?.city || 'Jaipur'}</span>
               </div>
             </div>
 
@@ -471,28 +635,28 @@ export const LandingPage: React.FC = () => {
               <div className="space-y-2.5">
                 <div className="rounded-2xl overflow-hidden border border-stone-200/90 shadow-xs aspect-[4/3] bg-stone-200 group">
                   <img
-                    src="https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=800&q=80"
-                    alt="Traditional Clay Kulhad Chai"
+                    src={gallery?.[1]?.imageUrl || (isCustom ? cafeSpaces[1]?.image : '/images/dishes/oreo_frappe.jpg')}
+                    alt={isCustom ? cafeSpaces[1]?.name : 'Signature Oreo Overload Cold Frappe'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
                 <div className="text-[11px] text-stone-500 px-1">
-                  <strong className="text-stone-800 block text-xs">Porous Terracotta Clay Kulhads</strong>
-                  <span>Infused with freshly crushed ginger, cardamom & pure milk.</span>
+                  <strong className="text-stone-800 block text-xs">{isCustom ? cafeSpaces[1]?.name : 'Signature Oreo Overload Cold Frappe'}</strong>
+                  <span>{isCustom ? cafeSpaces[1]?.atmosphere : 'Whipped with dark chocolate cookies, double espresso, and creamy ice cream.'}</span>
                 </div>
               </div>
 
               <div className="space-y-2.5">
                 <div className="rounded-2xl overflow-hidden border border-stone-200/90 shadow-xs aspect-[4/3] bg-stone-200 group">
                   <img
-                    src="https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=800&q=80"
-                    alt="Evening Festoon Bulbs"
+                    src={gallery?.[2]?.imageUrl || (isCustom ? cafeSpaces[2]?.image : '/images/dishes/sandwich_fries.jpg')}
+                    alt={isCustom ? cafeSpaces[2]?.name : 'Triple-Decker Grilled Sandwich & Golden French Fries'}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
                 <div className="text-[11px] text-stone-500 px-1">
-                  <strong className="text-stone-800 block text-xs">Evening Festoon Illuminations</strong>
-                  <span>Warm amber filament glow beneath the cool night breeze.</span>
+                  <strong className="text-stone-800 block text-xs">{isCustom ? cafeSpaces[2]?.name : 'Triple-Decker Grilled Sandwich & Fries'}</strong>
+                  <span>{isCustom ? cafeSpaces[2]?.atmosphere : 'Golden grilled jumbo sandwich with spiced fillings and crisp fries.'}</span>
                 </div>
               </div>
 
@@ -502,100 +666,318 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. THE SPACES: Verified Seating Zones as Individual Experiences */}
+      {/* 4. THE SPACES: Verified Seating Zones */}
       <section id="spaces" className="py-20 lg:py-28 bg-white border-b border-stone-200/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="max-w-2xl mx-auto text-center mb-16">
-            <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
-              Seating Zones
+            <span className="text-xs uppercase tracking-[0.2em] font-bold block mb-2" style={{ color: theme.secondaryColor }}>
+              Seating Environments
             </span>
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-stone-900 tracking-tight">
-              Choose Your Corner of the Garden.
+              {isCustom ? 'Explore Our Curated Spaces' : 'Choose Your Balcony Corner.'}
             </h2>
             <p className="text-sm sm:text-base text-stone-600 mt-3 leading-relaxed">
-              Every dining space at Switea has been verified and thoughtfully arranged for different moods, group sizes, and times of day.
+              {isCustom ? `Every table at ${restaurant?.name} is configured with a digital QR code for instantaneous ordering directly to our kitchen.` : 'Every table at RoastFuze is configured with a digital QR code for instantaneous ordering directly to our kitchen and barista bar.'}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {cafeSpaces.map((space) => (
-              <div
-                key={space.id}
-                className="bg-cream-50 rounded-3xl border border-stone-200/80 overflow-hidden shadow-xs hover:shadow-card transition-all duration-300 flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="relative aspect-[16/11] bg-stone-100 overflow-hidden">
-                    <img
-                      src={space.image}
-                      alt={space.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-nature-950 border border-stone-200 shadow-xs">
-                      {space.badge}
-                    </div>
-                  </div>
+          {/* Dynamic Spaces Presentation According to photoLayout */}
+          {(() => {
+            // 1. Bento Asymmetrical Grid Layout
+            if (photoLayout === 'bento') {
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {cafeSpaces.map((space, idx) => {
+                    const isFeature = idx === 0;
+                    return (
+                      <div
+                        key={space.name || idx}
+                        className={`bg-cream-50 rounded-3xl border border-stone-200/80 overflow-hidden shadow-xs hover:shadow-card transition-all duration-300 flex flex-col justify-between group ${
+                          isFeature ? 'md:col-span-2' : ''
+                        }`}
+                      >
+                        <div>
+                          <div className={`relative ${isFeature ? 'aspect-[21/10]' : 'aspect-[16/11]'} bg-stone-100 overflow-hidden`}>
+                            <img
+                              src={space.image}
+                              alt={space.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                            <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-stone-950 border border-stone-200 shadow-xs">
+                              {space.badge}
+                            </div>
+                            {isFeature && (
+                              <div className="absolute bottom-3 right-3 bg-stone-900/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-amber-300">
+                                ⭐ Signature Seating
+                              </div>
+                            )}
+                          </div>
 
-                  <div className="p-6 space-y-3">
-                    <div>
-                      <h3 className="font-serif text-xl font-bold text-stone-900 leading-tight">
-                        {space.name}
-                      </h3>
-                      <span className="text-xs font-semibold text-nature-800 block mt-0.5">
-                        {space.subtitle}
-                      </span>
-                    </div>
+                          <div className="p-6 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                              <div>
+                                <h3 className="font-serif text-xl font-bold text-stone-900 leading-tight">
+                                  {space.name}
+                                </h3>
+                                <span className="text-xs font-semibold block mt-0.5" style={{ color: theme.secondaryColor }}>
+                                  {space.subtitle}
+                                </span>
+                              </div>
+                              <span className="text-xs font-mono font-bold text-stone-600 bg-white px-2.5 py-1 rounded-lg border border-stone-200">
+                                {space.timing}
+                              </span>
+                            </div>
 
-                    <p className="text-xs text-stone-600 leading-relaxed">
-                      {space.atmosphere}
-                    </p>
+                            <p className="text-xs text-stone-600 leading-relaxed">{space.atmosphere}</p>
 
-                    <div className="pt-3 border-t border-stone-200/70 space-y-1.5 text-[11px] text-stone-600">
-                      <div>
-                        <strong className="text-stone-800 font-semibold">Ideal For: </strong>
-                        <span>{space.bestFor}</span>
+                            <div className="pt-3 border-t border-stone-200/70 flex flex-wrap gap-4 text-[11px] text-stone-600">
+                              <div>
+                                <strong className="text-stone-800 font-semibold">Ideal For: </strong>
+                                <span>{space.bestFor}</span>
+                              </div>
+                              <div>
+                                <strong className="text-stone-800 font-semibold">Capacity: </strong>
+                                <span>{space.capacity}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-6 pt-0">
+                          <Link
+                            to="/menu"
+                            className="w-full inline-flex items-center justify-center gap-1.5 bg-white hover:bg-stone-100 border border-stone-300 text-stone-800 py-2.5 rounded-xl text-xs font-bold transition-colors"
+                          >
+                            <span>View Menu For This Space</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-stone-500" />
+                          </Link>
+                        </div>
                       </div>
-                      <div>
-                        <strong className="text-stone-800 font-semibold">Capacity: </strong>
-                        <span>{space.capacity}</span>
-                      </div>
-                      <div>
-                        <strong className="text-stone-800 font-semibold">Timing: </strong>
-                        <span className="text-nature-700">{space.timing}</span>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
+              );
+            }
 
-                <div className="p-6 pt-0">
-                  <Link
-                    to="/menu"
-                    className="w-full inline-flex items-center justify-center gap-1.5 bg-white hover:bg-stone-100 border border-stone-300 text-stone-800 py-2.5 rounded-xl text-xs font-bold transition-colors"
+            // 2. Editorial Magazine Staggered Portrait Cards
+            if (photoLayout === 'magazine') {
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {cafeSpaces.map((space, idx) => (
+                    <div
+                      key={space.name || idx}
+                      className="bg-white rounded-2xl border-2 border-stone-800 overflow-hidden shadow-lg flex flex-col justify-between group transform hover:-translate-y-1 transition-all duration-300"
+                    >
+                      <div>
+                        <div className="relative aspect-[3/4] bg-stone-100 overflow-hidden border-b-2 border-stone-800">
+                          <img
+                            src={space.image}
+                            alt={space.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          />
+                          <div className="absolute top-3 left-3 bg-stone-900 text-white font-serif italic text-xs px-2.5 py-1 rounded-md shadow-sm">
+                            0{idx + 1}
+                          </div>
+                          <div className="absolute bottom-3 left-3 right-3 bg-stone-950/80 backdrop-blur-md p-2.5 rounded-xl text-white">
+                            <span className="text-[10px] tracking-widest uppercase font-mono text-amber-300 block">
+                              {space.badge}
+                            </span>
+                            <strong className="font-serif text-sm block leading-tight">{space.name}</strong>
+                          </div>
+                        </div>
+
+                        <div className="p-5 space-y-2">
+                          <p className="text-xs text-stone-600 line-clamp-3 leading-relaxed">{space.atmosphere}</p>
+                          <div className="pt-2 text-[10px] text-stone-500 font-mono space-y-0.5">
+                            <p>Capacity: {space.capacity}</p>
+                            <p className="text-indigo-800 font-bold">{space.timing}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-5 pt-0">
+                        <Link
+                          to="/menu"
+                          className="w-full inline-flex items-center justify-center gap-1.5 text-white py-2.5 rounded-xl text-xs font-bold shadow transition-colors"
+                          style={{ backgroundColor: theme.primaryColor }}
+                        >
+                          <span>Reserve Space</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            // 3. Cinematic Horizontal Filmstrip Carousel
+            if (photoLayout === 'cinematic') {
+              return (
+                <div className="overflow-x-auto flex gap-6 pb-6 pt-2 snap-x scrollbar-thin">
+                  {cafeSpaces.map((space, idx) => (
+                    <div
+                      key={space.name || idx}
+                      className="min-w-[320px] sm:min-w-[420px] bg-stone-900 text-white rounded-3xl overflow-hidden shadow-2xl snap-start flex flex-col justify-between group border border-stone-800 flex-shrink-0"
+                    >
+                      <div className="relative aspect-[16/10] overflow-hidden">
+                        <img
+                          src={space.image}
+                          alt={space.name}
+                          className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-black/40 flex flex-col justify-between p-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase font-mono tracking-widest px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md">
+                              {space.badge}
+                            </span>
+                            <span className="text-[10px] font-bold text-amber-400">★ High Comfort</span>
+                          </div>
+                          <div>
+                            <h3 className="font-serif text-xl font-bold">{space.name}</h3>
+                            <p className="text-xs text-stone-300 mt-0.5">{space.subtitle}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-5 space-y-3 bg-stone-950">
+                        <p className="text-xs text-stone-400 leading-relaxed">{space.atmosphere}</p>
+                        <div className="flex items-center justify-between pt-2 border-t border-stone-800 text-[11px] text-stone-400">
+                          <span>{space.capacity}</span>
+                          <span className="text-amber-400 font-bold">{space.timing}</span>
+                        </div>
+                        <Link
+                          to="/menu"
+                          className="w-full inline-flex items-center justify-center gap-1.5 bg-white hover:bg-stone-200 text-stone-950 py-2.5 rounded-xl text-xs font-bold transition-colors mt-2"
+                        >
+                          <span>Explore Menu</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+
+            // 4. Dynamic Split-Screen Alternating Rows
+            if (photoLayout === 'split') {
+              return (
+                <div className="space-y-6">
+                  {cafeSpaces.map((space, idx) => {
+                    const isEven = idx % 2 === 0;
+                    return (
+                      <div
+                        key={space.name || idx}
+                        className="bg-white rounded-3xl border border-stone-200 overflow-hidden shadow-soft grid grid-cols-1 md:grid-cols-12 items-center group"
+                      >
+                        <div className={`md:col-span-6 relative aspect-[16/10] overflow-hidden ${isEven ? 'order-1' : 'order-1 md:order-2'}`}>
+                          <img
+                            src={space.image}
+                            alt={space.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          />
+                          <div className="absolute top-3 left-3 bg-stone-950/85 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white">
+                            {space.badge}
+                          </div>
+                        </div>
+
+                        <div className={`md:col-span-6 p-6 sm:p-10 space-y-4 ${isEven ? 'order-2' : 'order-2 md:order-1'}`}>
+                          <div>
+                            <span className="text-xs uppercase font-mono tracking-widest font-bold" style={{ color: theme.secondaryColor }}>
+                              Space 0{idx + 1}
+                            </span>
+                            <h3 className="font-serif text-2xl font-bold text-stone-900 mt-1">{space.name}</h3>
+                            <p className="text-xs text-stone-500 font-semibold">{space.subtitle}</p>
+                          </div>
+
+                          <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">{space.atmosphere}</p>
+
+                          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-stone-100 text-xs text-stone-600">
+                            <div>
+                              <strong className="block text-stone-900">Capacity:</strong>
+                              <span>{space.capacity}</span>
+                            </div>
+                            <div>
+                              <strong className="block text-stone-900">Best Timing:</strong>
+                              <span style={{ color: theme.primaryColor }} className="font-bold">{space.timing}</span>
+                            </div>
+                          </div>
+
+                          <Link
+                            to="/menu"
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow transition-colors"
+                            style={{ backgroundColor: theme.primaryColor }}
+                          >
+                            <span>Browse Digital Menu</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
+
+            // 5. Minimalist Japanese Zen Layout (Square Balanced Grid)
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {cafeSpaces.map((space, idx) => (
+                  <div
+                    key={space.name || idx}
+                    className="bg-white rounded-2xl border border-stone-300 overflow-hidden shadow-xs p-3 space-y-3 group"
                   >
-                    <span>View Menu For This Space</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-stone-500" />
-                  </Link>
-                </div>
+                    <div className="relative aspect-square rounded-xl bg-stone-100 overflow-hidden">
+                      <img
+                        src={space.image}
+                        alt={space.name}
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+                      />
+                      <div className="absolute top-2 left-2 bg-white/95 px-2 py-0.5 rounded text-[9px] font-mono uppercase text-stone-800 border border-stone-200">
+                        {space.badge}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 p-1">
+                      <h3 className="font-serif text-base font-bold text-stone-900 truncate">{space.name}</h3>
+                      <p className="text-[11px] text-stone-500 line-clamp-2 leading-relaxed">{space.atmosphere}</p>
+                      <div className="pt-2 text-[10px] text-stone-400 font-mono flex items-center justify-between">
+                        <span>{space.capacity}</span>
+                        <span className="text-stone-800 font-bold">{space.timing}</span>
+                      </div>
+                    </div>
+
+                    <Link
+                      to="/menu"
+                      className="w-full inline-flex items-center justify-center gap-1 bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-800 py-2 rounded-lg text-[11px] font-bold transition-colors"
+                    >
+                      <span>Explore</span>
+                      <ChevronRight className="w-3 h-3 text-stone-400" />
+                    </Link>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
         </div>
       </section>
 
-      {/* 5. DAY-TO-EVENING STORYTELLING: Visual & Atmospheric Transition */}
-      <section className="py-20 lg:py-28 bg-cream-200/50 border-b border-stone-200/70">
+      {/* 5. DAY-TO-EVENING STORYTELLING */}
+      <section className="py-20 lg:py-28 border-b border-stone-200/70" style={{ backgroundColor: theme.bgCream }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="max-w-3xl mx-auto text-center mb-12">
-            <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
+            <span className="text-xs uppercase tracking-[0.2em] font-bold block mb-2" style={{ color: theme.secondaryColor }}>
               Atmospheric Pacing
             </span>
             <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight">
-              Daylight Breeze to Twilight Glow
+              {isCustom ? 'Daytime Serenity to Evening Glow' : 'Daytime Sips to Evening Acoustic Glow'}
             </h2>
             <p className="text-sm text-stone-600 mt-2">
-              Experience the dual personality of Switea—bright daytime outdoor dining and intimate evening garden ambience.
+              {isCustom ? `Experience the unique charm of ${restaurant?.name} — bright daytime calm and enchanting evening ambiance.` : 'Experience the dual charm of RoastFuze — bright daytime coffee lounge and intimate musical balcony by night.'}
             </p>
 
             {/* Interactive Mode Switcher */}
@@ -605,12 +987,13 @@ export const LandingPage: React.FC = () => {
                 onClick={() => setTimeMood('day')}
                 className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition-all ${
                   timeMood === 'day'
-                    ? 'bg-nature-900 text-white shadow-xs'
+                    ? 'text-white shadow-xs'
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
+                style={timeMood === 'day' ? { backgroundColor: theme.primaryColor } : {}}
               >
                 <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span>Daytime Garden Dining</span>
+                <span>Daytime Ambience</span>
               </button>
 
               <button
@@ -618,12 +1001,12 @@ export const LandingPage: React.FC = () => {
                 onClick={() => setTimeMood('evening')}
                 className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold transition-all ${
                   timeMood === 'evening'
-                    ? 'bg-nature-950 text-white shadow-xs'
+                    ? 'bg-stone-950 text-white shadow-xs'
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
                 <Moon className="w-3.5 h-3.5 text-amber-300" />
-                <span>Twilight & Festoon Lights</span>
+                <span>Evening Glow</span>
               </button>
             </div>
           </div>
@@ -635,40 +1018,40 @@ export const LandingPage: React.FC = () => {
                 <div className="lg:col-span-7">
                   <div className="rounded-2xl overflow-hidden aspect-[16/10] border border-stone-200 bg-stone-100 shadow-xs">
                     <img
-                      src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80"
-                      alt="Daytime Garden Dining at Switea"
+                      src={isCustom ? (cafeSpaces[2]?.image || cafeSpaces[0]?.image) : '/images/roastfuze_coffee_cup.png'}
+                      alt={`Daytime Ambience at ${restaurant?.name}`}
                       className="w-full h-full object-cover"
                     />
                   </div>
                 </div>
 
                 <div className="lg:col-span-5 space-y-4 text-left">
-                  <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                    <Sun className="w-3.5 h-3.5 text-amber-600" />
-                    <span>10:00 AM – 04:30 PM • Sunlight & Fresh Air</span>
+                  <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border" style={{ backgroundColor: `${theme.primaryColor}15`, borderColor: `${theme.primaryColor}30`, color: theme.primaryColor }}>
+                    <Sun className="w-3.5 h-3.5" />
+                    <span>10:00 AM – 04:30 PM • Sunlight & Calm</span>
                   </div>
 
                   <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug">
-                    Natural Sunlight, Leafy Shadows & Chilled Brews
+                    Natural Light, Fresh Brews & Unrushed Calm
                   </h3>
 
                   <p className="text-sm text-stone-600 leading-relaxed">
-                    Mornings at Switea begin with birdsong and clean morning breezes. The sun filters gently through the leaves, illuminating comfortable outdoor tables. Perfect for energized catch-ups, creative outdoor laptop work, or breakfast with iced coffees and hot toasties.
+                    {isCustom ? `Mornings at ${restaurant?.name} are relaxed and tranquil. Crisp sunlight fills our seating areas while our baristas brew freshly roasted coffee and teas. Ideal for focused work, intimate chats, or peaceful morning meetings.` : 'Mornings at RoastFuze are relaxed and tranquil. Crisp sunlight enters the lounge while our espresso machine hums with fresh roasts. Ideal for focused laptop work, coffee tastings, or peaceful brunch meetings.'}
                   </p>
 
                   <div className="pt-2 border-t border-stone-100">
                     <span className="text-[11px] uppercase tracking-wider font-bold text-stone-400 block mb-2">
-                      Daytime Recommendations:
+                      Daytime Experience:
                     </span>
                     <div className="flex flex-wrap gap-2">
                       <span className="bg-stone-100 border border-stone-200 text-stone-800 text-xs px-3 py-1 rounded-full font-medium">
-                        Garden Fresh Mint Mojito
+                        Artisan Fresh Brews
                       </span>
                       <span className="bg-stone-100 border border-stone-200 text-stone-800 text-xs px-3 py-1 rounded-full font-medium">
-                        Gud Ki Chai (Jaggery Tea)
+                        Quiet Work Friendly
                       </span>
                       <span className="bg-stone-100 border border-stone-200 text-stone-800 text-xs px-3 py-1 rounded-full font-medium">
-                        Artisan Cold Coffee
+                        Handcrafted Delights
                       </span>
                     </div>
                   </div>
@@ -679,40 +1062,40 @@ export const LandingPage: React.FC = () => {
                 <div className="lg:col-span-7">
                   <div className="rounded-2xl overflow-hidden aspect-[16/10] border border-stone-200 bg-stone-900 shadow-xs">
                     <img
-                      src="https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=1200&q=80"
-                      alt="Evening Festoon Ambience at Switea"
+                      src={isCustom ? (cafeSpaces[1]?.image || cafeSpaces[0]?.image) : '/images/roastfuze_pasta_neon.jpg'}
+                      alt={`Evening Glow at ${restaurant?.name}`}
                       className="w-full h-full object-cover opacity-95"
                     />
                   </div>
                 </div>
 
                 <div className="lg:col-span-5 space-y-4 text-left">
-                  <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    <Moon className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>06:00 PM – 11:30 PM • Warm Filament Glow</span>
+                  <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-amber-800/20 bg-amber-50 text-amber-900">
+                    <Moon className="w-3.5 h-3.5 text-amber-700" />
+                    <span>05:30 PM – 11:00 PM • Ambient Evening Lights</span>
                   </div>
 
                   <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 leading-snug">
-                    Golden Festoons, Pleasant Night Air & Hot Clay Cups
+                    Golden Sunset Glow, Ambient Music & Fresh Slices
                   </h3>
 
                   <p className="text-sm text-stone-600 leading-relaxed">
-                    As twilight settles over Jaipur, our festoon lights glow warmly through the tree canopy. The desert heat drops, bringing a soothing cool evening breeze. Friends gather around steaming cups of spicy ginger kulhad chai and stone-baked farmhouse pizzas under the night sky.
+                    {isCustom ? `When twilight arrives, ${restaurant?.name} comes alive with warm glowing lights, soothing background tunes, and guests savoring fresh artisanal food and beverages.` : 'When the sunset dips beneath Vaishali Nagar, the musical balcony ignites. Fairy lights twinkle, acoustic guitar strings ring out, and guests savor hot Cheesy Margherita pizzas, Alfredo pasta, and thick double choco-chip frappes.'}
                   </p>
 
                   <div className="pt-2 border-t border-stone-100">
                     <span className="text-[11px] uppercase tracking-wider font-bold text-stone-400 block mb-2">
-                      Evening Recommendations:
+                      Evening Highlights:
                     </span>
                     <div className="flex flex-wrap gap-2">
                       <span className="bg-stone-100 border border-stone-200 text-stone-800 text-xs px-3 py-1 rounded-full font-medium">
-                        Adrak Masala Kulhad Chai
+                        Warm Ambient Lights
                       </span>
                       <span className="bg-stone-100 border border-stone-200 text-stone-800 text-xs px-3 py-1 rounded-full font-medium">
-                        Farmhouse Stone-Baked Pizza
+                        Stone-Baked Slices
                       </span>
                       <span className="bg-stone-100 border border-stone-200 text-stone-800 text-xs px-3 py-1 rounded-full font-medium">
-                        Crispy Kurkure Momos
+                        Chilled Beverages
                       </span>
                     </div>
                   </div>
@@ -724,29 +1107,29 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 6. FOOD AND DRINKS: Distinctive Featured Menu Layout & Item Shelves */}
+      {/* 6. FOOD AND DRINKS: Featured Menu */}
       <section className="py-20 lg:py-28 bg-white border-b border-stone-200/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 pb-6 border-b border-stone-200">
             <div>
-              <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
-                Culinary Craft
+              <span className="text-xs uppercase tracking-[0.2em] font-bold text-amber-800 block mb-2">
+                Crafted Offerings
               </span>
               <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight">
-                Wholesome Cafe Fare in the Garden
+                Specialty Menu on the Balcony
               </h2>
               <p className="text-sm text-stone-600 mt-2">
-                Simmered, brewed and stone-baked fresh to order. No pre-cooked compromises.
+                Artisan roasts, thick frappes, crisp waffles, stone-baked pizzas, and savory pasta cooked fresh to order.
               </p>
             </div>
 
             <Link
               to="/menu"
-              className="mt-4 md:mt-0 inline-flex items-center gap-2 bg-nature-900 text-white hover:bg-nature-950 px-6 py-3 rounded-xl text-xs uppercase tracking-wider font-bold shadow-soft transition-all"
+              className="mt-4 md:mt-0 inline-flex items-center gap-2 bg-stone-900 text-white hover:bg-stone-800 px-6 py-3 rounded-xl text-xs uppercase tracking-wider font-bold shadow-soft transition-all"
             >
-              <span>View Complete Digital Menu</span>
-              <ArrowRight className="w-4 h-4 text-nature-300" />
+              <span>View Full Digital Menu</span>
+              <ArrowRight className="w-4 h-4 text-amber-300" />
             </Link>
           </div>
 
@@ -758,11 +1141,11 @@ export const LandingPage: React.FC = () => {
                 onClick={() => setActiveCategoryFilter('all')}
                 className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
                   activeCategoryFilter === 'all'
-                    ? 'bg-nature-900 text-white shadow-xs'
+                    ? 'bg-stone-900 text-white shadow-xs'
                     : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                 }`}
               >
-                All Signature Bestsellers
+                All Bestsellers
               </button>
 
               {categories.map((cat) => (
@@ -772,7 +1155,7 @@ export const LandingPage: React.FC = () => {
                   onClick={() => setActiveCategoryFilter(cat.slug || cat.id)}
                   className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
                     activeCategoryFilter === (cat.slug || cat.id)
-                      ? 'bg-nature-900 text-white shadow-xs'
+                      ? 'bg-stone-900 text-white shadow-xs'
                       : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                   }`}
                 >
@@ -782,7 +1165,7 @@ export const LandingPage: React.FC = () => {
             </div>
           )}
 
-          {/* Horizontal Scrolling Featured Item Shelf */}
+          {/* Featured Item Shelf */}
           {filteredBestsellers && filteredBestsellers.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {filteredBestsellers.slice(0, 8).map((item) => (
@@ -795,31 +1178,31 @@ export const LandingPage: React.FC = () => {
             </div>
           )}
 
-          {/* Large Editorial Highlight Box: The Earthen Clay Tradition */}
-          <div className="mt-16 bg-cream-100 rounded-3xl border border-stone-200 p-8 sm:p-10">
+          {/* Editorial Highlight: Signature Craft */}
+          <div className="mt-16 rounded-3xl border border-stone-200 p-8 sm:p-10" style={{ backgroundColor: theme.bgCream }}>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               <div className="lg:col-span-4 rounded-2xl overflow-hidden aspect-[4/3] border border-stone-200 shadow-xs">
                 <img
-                  src="https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=800&q=80"
-                  alt="Authentic Earthen Kulhad Chai Tradition"
+                  src={isCustom ? (cafeSpaces[1]?.image || cafeSpaces[0]?.image) : '/images/roastfuze_coffee_cup.png'}
+                  alt={isCustom ? `${restaurant?.name} Signature Craft` : 'Thick Ice Cream Frappes at RoastFuze'}
                   className="w-full h-full object-cover"
                 />
               </div>
 
               <div className="lg:col-span-8 space-y-3 text-left">
-                <span className="text-[11px] uppercase tracking-wider font-bold text-nature-800 block">
-                  The Clay Kulhad Ritual
+                <span className="text-[11px] uppercase tracking-wider font-bold block" style={{ color: theme.secondaryColor }}>
+                  {isCustom ? `The ${restaurant?.name} Philosophy` : 'The RoastFuze Frappe Philosophy'}
                 </span>
                 <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
-                  Why Tea Belongs in Terracotta Clay
+                  {isCustom ? 'Crafted with Freshness, Passion & Pure Ingredients' : 'Thick, Velvety & Blended with Premium Ice Cream'}
                 </h3>
                 <p className="text-sm text-stone-600 leading-relaxed">
-                  Our kulhads are crafted by traditional potters from natural Rajasthan clay and fired once. When freshly brewed hot masala chai touches the unglazed terracotta, it absorbs a subtle mineral sweetness and releases an irreplaceable earthy scent (<em>mitti ki khushboo</em>) that paper cups or glass mugs can never replicate.
+                  {isCustom ? `At ${restaurant?.name}, we believe every visit should be an experience. From sourcing quality ingredients to handcrafting each dish and beverage fresh to order, our commitment is unmatched taste and warm hospitality.` : 'Unlike watered-down cold coffees, every RoastFuze frappe is slow-whipped with scoops of real dairy ice cream, crushed ice crystals, and double-pulled espresso shots. Whether you choose Crunchy Oreo, Double Choco Chip, or Belgian Biscoff, it\'s a dessert in a glass.'}
                 </p>
-                <div className="pt-2 flex items-center gap-6 text-xs text-stone-700 font-semibold">
-                  <span>• 100% Biodegradable & Natural</span>
-                  <span>• Enhanced Thermal Warmth</span>
-                  <span>• Rich Native Flavor</span>
+                <div className="pt-2 flex flex-wrap items-center gap-6 text-xs text-stone-700 font-semibold">
+                  <span>• Handcrafted Fresh Per Order</span>
+                  <span>• Pure Quality Ingredients</span>
+                  <span>• Warm Welcoming Hospitality</span>
                 </div>
               </div>
             </div>
@@ -828,80 +1211,81 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 7. SOCIAL EXPERIENCE: Gatherings & Leisure */}
-      <section className="py-20 lg:py-28 bg-cream-100 border-b border-stone-200/70">
+      {/* 7. SOCIAL OCCASIONS */}
+      <section className="py-20 lg:py-28 border-b border-stone-200/70" style={{ backgroundColor: theme.bgCream }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="max-w-2xl mx-auto text-center mb-16">
-            <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
+            <span className="text-xs uppercase tracking-[0.2em] font-bold block mb-2" style={{ color: theme.secondaryColor }}>
               Shared Occasions
             </span>
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-stone-900 tracking-tight">
-              Gatherings in the Garden.
+              {isCustom ? `Moments at ${restaurant?.name}` : 'Moments on the Balcony.'}
             </h2>
             <p className="text-sm sm:text-base text-stone-600 mt-3 leading-relaxed">
-              Whether you are meeting an old friend, carving out quiet remote working hours, or organizing a birthday under the pergolas, our outdoor setting accommodates every rhythm.
+              {isCustom ? `From lively group catch-ups with friends to focused daytime laptop hours or relaxing evening dates.` : 'From lively acoustic jamming nights with friends to focused daytime laptop hours or sunset coffee dates.'}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             
-            {/* Occasion 1: Casual Meetups & Tea Dates */}
+            {/* Occasion 1 */}
             <div className="bg-white p-8 rounded-3xl border border-stone-200/80 shadow-soft space-y-4 text-left flex flex-col justify-between">
               <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-cream-200 text-nature-900 flex items-center justify-center">
-                  <Users className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${theme.primaryColor}15`, color: theme.primaryColor }}>
+                  <Heart className="w-6 h-6" />
                 </div>
                 <h3 className="font-serif text-xl font-bold text-stone-900">
-                  Unrushed Tea Dates & Catch-ups
+                  {isCustom ? 'Relaxed Dates & Unhurried Catch-ups' : 'Sunset Dates & Unhurried Catch-ups'}
                 </h3>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  No loud indoor acoustics or waiters rushing your table. Settle in for long, meaningful conversations under the tree canopy with steaming kulhad chai, crispy peri-peri fries, and hot momos.
+                  {isCustom ? 'No rushing, no noise. Take a comfortable seat, enjoy the ambiance, and chat over fresh artisanal beverages and hot comfort food.' : 'No rushing, no noise. Take a seat by the balcony railing, enjoy the breeze, and chat over thick frappes and hot Belgian waffles under golden twilight.'}
                 </p>
               </div>
-              <span className="text-[11px] font-bold text-nature-800 block pt-4 border-t border-stone-100">
-                Walk-ins always welcome across lawn tables.
+              <span className="text-[11px] font-bold block pt-4 border-t border-stone-100" style={{ color: theme.secondaryColor }}>
+                Walk-ins always welcome across all tables.
               </span>
             </div>
 
-            {/* Occasion 2: Remote Work & Creative Solitude */}
+            {/* Occasion 2 */}
             <div className="bg-white p-8 rounded-3xl border border-stone-200/80 shadow-soft space-y-4 text-left flex flex-col justify-between">
               <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-cream-200 text-nature-900 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${theme.primaryColor}15`, color: theme.primaryColor }}>
                   <Coffee className="w-6 h-6" />
                 </div>
                 <h3 className="font-serif text-xl font-bold text-stone-900">
-                  Open-Air Focus & Creative Hours
+                  Daytime Focus & Laptop Hours
                 </h3>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  Natural daylight, fresh air, and peaceful surroundings keep thoughts clear. Sip on artisan cold coffees while working remotely on laptops or enjoying a good book in our shaded pergolas.
+                  Clean air, rich espresso cups, delicious bites, and calm surroundings to fuel your productive morning or afternoon working hours.
                 </p>
               </div>
-              <span className="text-[11px] font-bold text-nature-800 block pt-4 border-t border-stone-100">
-                High-speed WiFi & shaded plug points available.
+              <span className="text-[11px] font-bold block pt-4 border-t border-stone-100" style={{ color: theme.secondaryColor }}>
+                High-speed WiFi & serene environment.
               </span>
             </div>
 
-            {/* Occasion 3: Celebrations in the Cabanas */}
+            {/* Occasion 3 */}
             <div className="bg-white p-8 rounded-3xl border border-stone-200/80 shadow-soft space-y-4 text-left flex flex-col justify-between">
               <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-cream-200 text-nature-900 flex items-center justify-center">
-                  <Calendar className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${theme.primaryColor}15`, color: theme.primaryColor }}>
+                  <Music className="w-6 h-6" />
                 </div>
                 <h3 className="font-serif text-xl font-bold text-stone-900">
-                  Garden Birthdays & Small Celebrations
+                  {isCustom ? 'Celebrations & Evening Gatherings' : 'Live Acoustic Jamming Sessions'}
                 </h3>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  Celebrate special days with friends and family in our reserved cabana pergolas. Surrounded by garden foliage and warm evening fairy lights, we help arrange custom pizzas, platters, and snacks.
+                  {isCustom ? `Gather your friends and family for birthdays, celebrations, or spontaneous dinners with exquisite food and warm hospitality.` : 'Live guitar melodies and singing performances from local artists. Enjoy the music while munching on piping hot momos and stone-baked pizza slices.'}
                 </p>
               </div>
               <a
-                href="https://wa.me/919555495454?text=Hi%20Switea%20Cafe%2C%20I%20would%20like%20to%20inquire%20about%20a%20garden%20table%20reservation"
+                href={`https://wa.me/${(restaurant?.whatsappNumber || restaurant?.phone || '919352182562').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${restaurant?.name || 'Cafe'}, I would like to inquire about table reservations`)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] font-bold text-nature-900 hover:underline flex items-center gap-1 pt-4 border-t border-stone-100"
+                className="text-[11px] font-bold hover:underline flex items-center gap-1 pt-4 border-t border-stone-100"
+                style={{ color: theme.primaryColor }}
               >
-                <span>Reserve a cabana via WhatsApp</span>
+                <span>Reserve via WhatsApp</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>
@@ -910,17 +1294,17 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 8. VERIFIED CUSTOMER REVIEWS: Real Guest Feedback */}
+      {/* 8. VERIFIED CUSTOMER REVIEWS */}
       {reviews && reviews.length > 0 && (
         <section className="py-20 lg:py-24 bg-white border-b border-stone-200/70">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             
             <div className="max-w-xl mx-auto text-center mb-12">
-              <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
+              <span className="text-xs uppercase tracking-[0.2em] font-bold block mb-2" style={{ color: theme.secondaryColor }}>
                 Guest Impressions
               </span>
               <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight">
-                Words from Our Garden Visitors
+                {isCustom ? `Words from Our Guests` : 'Words from Our Balcony Guests'}
               </h2>
             </div>
 
@@ -952,8 +1336,8 @@ export const LandingPage: React.FC = () => {
         </section>
       )}
 
-      {/* 9. LOCATION & VISIT: Strong Location Section with Directions, Hours & Map */}
-      <section id="location" className="py-20 lg:py-28 bg-cream-100">
+      {/* 9. LOCATION & VISIT */}
+      <section id="location" className="py-20 lg:py-28" style={{ backgroundColor: theme.bgCream }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="bg-white rounded-3xl shadow-card border border-stone-200 p-8 sm:p-12 lg:p-14">
@@ -962,48 +1346,48 @@ export const LandingPage: React.FC = () => {
               {/* Directions & Information */}
               <div className="lg:col-span-6 space-y-6 text-left">
                 <div>
-                  <span className="text-xs uppercase tracking-[0.2em] font-bold text-nature-800 block mb-2">
+                  <span className="text-xs uppercase tracking-[0.2em] font-bold block mb-2" style={{ color: theme.secondaryColor }}>
                     Finding Us
                   </span>
                   <h2 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 leading-tight">
-                    Visit Switea Nature Cafe
+                    Visit {restaurant?.name || 'RoastFuze Coffee Bar'}
                   </h2>
                   <p className="text-xs sm:text-sm text-stone-600 mt-2">
-                    Located in the peaceful residential lanes of Karni Vihar, Gandhipath, with easy access from Vaishali Nagar.
+                    Located in {restaurant?.address || `${restaurant?.city || 'Jaipur'}, ${restaurant?.state || 'Rajasthan'}`}.
                   </p>
                 </div>
 
                 <div className="space-y-4 text-sm text-stone-700">
                   <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-nature-900 mt-1 flex-shrink-0" />
+                    <MapPin className="w-5 h-5 mt-1 flex-shrink-0" style={{ color: theme.primaryColor }} />
                     <div>
                       <strong className="block text-stone-900 font-serif">Complete Address</strong>
                       <span className="text-stone-600 leading-relaxed text-xs sm:text-sm">
-                        {restaurant?.address || '64A, Garden Cafe, Karni Vihar, Maa Karni Nagar, Gandhipath, near Vaishali Nagar'},{' '}
-                        {restaurant?.city || 'Jaipur'}, {restaurant?.state || 'Rajasthan'} ({restaurant?.postalCode || '302021'})
+                        {restaurant?.address || (isCustom ? `${restaurant?.city || 'Jaipur'}, ${restaurant?.state || 'Rajasthan'}` : 'A-26, Vivek Vihar, Lalarpura Road, Gandhi Path West, Vaishali Nagar, Jaipur, Rajasthan 302021')}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <Clock className="w-5 h-5 text-nature-900 mt-1 flex-shrink-0" />
+                    <Clock className="w-5 h-5 mt-1 flex-shrink-0" style={{ color: theme.primaryColor }} />
                     <div>
                       <strong className="block text-stone-900 font-serif">Operating Hours</strong>
                       <span className="text-stone-600 text-xs sm:text-sm">
-                        {restaurant?.openingHours || '10:00 AM – 11:30 PM'} (Open Monday through Sunday)
+                        {restaurant?.openingHours || '10:00 AM – 11:00 PM (Open Monday through Sunday)'}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <Phone className="w-5 h-5 text-nature-900 mt-1 flex-shrink-0" />
+                    <Phone className="w-5 h-5 mt-1 flex-shrink-0" style={{ color: theme.primaryColor }} />
                     <div>
-                      <strong className="block text-stone-900 font-serif">Direct Phone</strong>
+                      <strong className="block text-stone-900 font-serif">Phone & Inquiries</strong>
                       <a
-                        href={`tel:${restaurant?.phone || '+919555495454'}`}
-                        className="text-nature-900 hover:underline font-bold text-xs sm:text-sm"
+                        href={`tel:${(restaurant?.phone || '+91 93521 82562').replace(/\s+/g, '')}`}
+                        className="hover:underline font-bold text-xs sm:text-sm"
+                        style={{ color: theme.primaryColor }}
                       >
-                        {restaurant?.phone || '+91 95554 95454'}
+                        {restaurant?.phone || '+91 93521 82562'}
                       </a>
                     </div>
                   </div>
@@ -1011,43 +1395,41 @@ export const LandingPage: React.FC = () => {
 
                 {/* Visitor Notes */}
                 <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 text-xs text-stone-600 space-y-1">
-                  <div className="font-bold text-stone-800">Visitor Notes:</div>
-                  <div>• Ample open-air parking available along Gandhipath road.</div>
-                  <div>• Outdoor lawn and sheltered pergolas available without mandatory advance booking.</div>
-                  <div>• Instant table ordering active via QR code on all tables.</div>
+                  <div className="font-bold text-stone-800">Visiting Notes:</div>
+                  <div>• Comfortable seating environments available without mandatory advance reservation.</div>
+                  <div>• Fresh culinary items prepared to order for optimal taste and quality.</div>
+                  <div>• Digital QR ordering active at each table for instant orders.</div>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="pt-2 flex flex-wrap gap-3">
                   <a
-                    href={restaurant?.mapLink || 'https://maps.google.com/?q=Switea+Garden+Cafe+Jaipur'}
+                    href={restaurant?.mapLink || (isCustom ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${restaurant?.name} ${restaurant?.address || restaurant?.city || 'Jaipur'}`)}` : 'https://www.google.com/maps/place/RoastFuze+Coffee+Bar+-+Musical+Balcony+cafe/@26.9056268,75.7271802,20.2z/data=!4m6!3m5!1s0x396db5fadc6985e1:0xec2fb39c9113ff9e!8m2!3d26.9056268!4d75.7271802!16s%2Fg%2F11xhbpgh0x')}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-2 bg-nature-900 hover:bg-nature-950 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
+                    className="inline-flex items-center gap-2 bg-stone-900 hover:bg-stone-800 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
                   >
-                    <Compass className="w-4 h-4 text-nature-300" />
+                    <Compass className="w-4 h-4 text-amber-300" />
                     <span>Get Directions on Google Maps</span>
                   </a>
 
-                  {restaurant?.whatsappNumber && (
-                    <a
-                      href={`https://wa.me/${restaurant.whatsappNumber.replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
-                    >
-                      <MessageCircle className="w-4 h-4 text-emerald-200" />
-                      <span>Chat on WhatsApp</span>
-                    </a>
-                  )}
+                  <a
+                    href={`https://wa.me/${(restaurant?.whatsappNumber || restaurant?.phone || '919352182562').replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
+                  >
+                    <MessageCircle className="w-4 h-4 text-emerald-200" />
+                    <span>Chat on WhatsApp</span>
+                  </a>
                 </div>
               </div>
 
               {/* Live Interactive Map */}
               <div className="lg:col-span-6 rounded-2xl overflow-hidden border border-stone-200 aspect-[16/11] relative bg-stone-100 shadow-inner">
                 <iframe
-                  title="Switea Garden Cafe Location Map"
-                  src="https://maps.google.com/maps?q=Karni%20Vihar%20Gandhipath%20Jaipur&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                  title={`${restaurant?.name || 'Cafe'} Location Map`}
+                  src={buildGoogleMapsEmbedUrl((data?.restaurant as any)?.mapEmbedUrl || data?.restaurant?.mapLink || (isCustom ? `${restaurant?.address || restaurant?.city || 'Jaipur'}, India` : '26.9056268,75.7271802'))}
                   className="w-full h-full border-0"
                   loading="lazy"
                 />
@@ -1059,7 +1441,7 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      <Footer />
+      <Footer restaurant={restaurant} />
     </div>
   );
 };

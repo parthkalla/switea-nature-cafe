@@ -1,15 +1,16 @@
 import React, { useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Download, RefreshCw, Printer, Trash2, Users, Layers } from 'lucide-react';
+import { Download, RefreshCw, Printer, Trash2, Users, Layers, CheckCircle2 } from 'lucide-react';
 import { Table } from '../../types';
 
 interface QRCodeCardProps {
   table: Table;
   onRegenerate: (tableId: string) => void;
   onDelete: (tableId: string) => void;
+  onFree?: (tableId: string) => void;
 }
 
-export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onDelete }) => {
+export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onDelete, onFree }) => {
   const qrRef = useRef<SVGSVGElement>(null);
   const token = table.qrCode?.token || '';
   
@@ -68,11 +69,36 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onD
             <h3 className="font-serif text-lg font-bold text-stone-900">{table.tableNumber}</h3>
             <p className="text-xs text-stone-500">{table.name}</p>
           </div>
-          <span className="flex items-center gap-1 text-xs text-stone-600 bg-cream-200 px-2.5 py-1 rounded-full font-medium">
-            <Users className="w-3.5 h-3.5 text-stone-500" />
-            <span>Seats {table.capacity}</span>
-          </span>
+          <div className="flex flex-col items-end gap-1.5">
+            <span className="flex items-center gap-1 text-xs text-stone-600 bg-cream-200 px-2.5 py-1 rounded-full font-medium">
+              <Users className="w-3.5 h-3.5 text-stone-500" />
+              <span>Seats {table.capacity}</span>
+            </span>
+            {table.isOccupied ? (
+              <span className="flex items-center gap-1 text-[10px] text-amber-800 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                <span>Occupied</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                <span>Available</span>
+              </span>
+            )}
+          </div>
         </div>
+
+        {/* Free Table quick action if table is occupied */}
+        {table.isOccupied && onFree && (
+          <button
+            type="button"
+            onClick={() => onFree(table.id)}
+            className="w-full mb-2 py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer no-print"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Clear / Mark Table Available</span>
+          </button>
+        )}
 
         {/* QR Code Graphic Frame */}
         <div className="bg-cream-100 rounded-2xl p-4 flex flex-col items-center justify-center border border-cream-300/60 my-2 print-container">
@@ -82,14 +108,14 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onD
               value={targetUrl}
               size={150}
               level="H"
-              fgColor="#1A3C2B"
+              fgColor="#291807"
               bgColor="#FFFFFF"
               includeMargin={false}
             />
           </div>
           <div className="mt-3 text-center">
-            <p className="font-serif text-xs font-bold text-nature-950 uppercase tracking-wide">
-              Switea Nature Cafe
+            <p className="font-serif text-xs font-bold text-amber-950 uppercase tracking-wide">
+              The RoastFuze Coffee Bar
             </p>
             <p className="text-[11px] font-semibold text-stone-600">Scan to Order • {table.tableNumber}</p>
           </div>

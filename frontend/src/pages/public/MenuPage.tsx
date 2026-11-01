@@ -14,12 +14,17 @@ import {
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
 import { MenuItemCard } from '../../components/menu/MenuItemCard';
+import { MenuQuickNav } from '../../components/menu/MenuQuickNav';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { MenuCategory, Restaurant, Table } from '../../types';
+import { useFoodParallax } from '../../hooks/useFoodParallax';
+import { getTenantSlug } from '../../utils/tenantHelper';
 
 export const MenuPage: React.FC = () => {
-  const { restaurantSlug = 'switea', tableToken } = useParams<{ restaurantSlug?: string; tableToken?: string }>();
+  useFoodParallax();
+  const { restaurantSlug, tableToken } = useParams<{ restaurantSlug?: string; tableToken?: string }>();
+  const effectiveSlug = getTenantSlug(restaurantSlug);
   const [searchParams] = useSearchParams();
   const initialCategory = searchParams.get('category');
 
@@ -48,14 +53,14 @@ export const MenuPage: React.FC = () => {
               tableNumber: tableRes.table.tableNumber,
               name: tableRes.table.name,
               section: tableRes.table.section,
-            });
+            }, 'QR');
           } catch (tErr: any) {
             console.error('Table token resolution error:', tErr);
             setError(tErr.message || 'Invalid table token.');
           }
         }
 
-        const menuRes = await api.getMenu(restaurantSlug);
+        const menuRes = await api.getMenu(effectiveSlug);
         setRestaurant(menuRes.restaurant);
         setCategories(menuRes.categories || []);
 
@@ -70,7 +75,7 @@ export const MenuPage: React.FC = () => {
       }
     }
     loadData();
-  }, [restaurantSlug, tableToken, initialCategory]);
+  }, [effectiveSlug, tableToken, initialCategory]);
 
   // Filtered menu items
   const filteredCategories = useMemo(() => {
@@ -145,16 +150,16 @@ export const MenuPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <span className="text-xs uppercase tracking-wider font-bold text-nature-700 block mb-1">
-                {restaurant?.tagLine || 'A Sip of Sweetness'}
+              <span className="text-xs uppercase tracking-wider font-bold text-amber-900 block mb-1">
+                {restaurant?.tagLine || 'Musical Balcony Cafe • Jaipur'}
               </span>
               <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900">
-                {restaurant?.name || 'Switea Nature Cafe'} Digital Menu
+                {restaurant?.name || 'RoastFuze Coffee Bar'} Digital Menu
               </h1>
               <p className="text-xs text-stone-500 mt-1 flex items-center gap-4">
-                <span>📍 Jaipur, Rajasthan</span>
-                <span>⏰ {restaurant?.openingHours}</span>
-                <span className="text-emerald-700 font-semibold">● Open Now</span>
+                <span>📍 Vaishali Nagar, Jaipur</span>
+                <span>⏰ {restaurant?.openingHours || '10:00 AM – 11:00 PM'}</span>
+                <span className="text-amber-800 font-semibold">● Open Now</span>
               </p>
             </div>
 
@@ -167,8 +172,8 @@ export const MenuPage: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search chai, maggi, pizza..."
-                  className="w-full sm:w-64 pl-10 pr-8 py-2.5 rounded-full border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800 bg-cream-50"
+                  placeholder="Search coffee, frappe, pizza, momos..."
+                  className="w-full sm:w-64 pl-10 pr-8 py-2.5 rounded-full border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-800 bg-cream-50"
                 />
                 {searchQuery && (
                   <button
@@ -289,6 +294,16 @@ export const MenuPage: React.FC = () => {
           </Link>
         </aside>
       )}
+
+      {/* Floating Category Quick Navigator */}
+      <MenuQuickNav
+        categories={categories}
+        activeCategory={selectedCategory}
+        onSelectCategory={(slug) => {
+          setSelectedCategory('ALL');
+        }}
+        hasBottomCart={totalItemCount > 0}
+      />
 
       <Footer />
     </div>

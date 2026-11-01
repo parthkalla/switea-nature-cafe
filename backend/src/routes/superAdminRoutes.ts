@@ -4,8 +4,13 @@ import {
   getAllRestaurants,
   createRestaurant,
   toggleRestaurantStatus,
+  deleteRestaurant,
+  restoreRestaurant,
   getAllUsers,
+  resetUserPassword,
   getSubscriptionPlans,
+  updateSubscriptionPlan,
+  createSubscriptionPlan,
   getAuditLogs,
   getPlatformAnalytics,
   getPlatformSettings,
@@ -23,8 +28,13 @@ router.get('/overview', getPlatformOverview);
 router.get('/restaurants', getAllRestaurants);
 router.post('/restaurants', createRestaurant);
 router.patch('/restaurants/:id/toggle-status', toggleRestaurantStatus);
+router.delete('/restaurants/:id', deleteRestaurant);
+router.post('/restaurants/:id/restore', restoreRestaurant);
 router.get('/users', getAllUsers);
+router.put('/users/:userId/password', resetUserPassword);
 router.get('/plans', getSubscriptionPlans);
+router.post('/plans', createSubscriptionPlan);
+router.put('/plans/:id', updateSubscriptionPlan);
 router.get('/audit-logs', getAuditLogs);
 router.get('/analytics', getPlatformAnalytics);
 router.get('/settings', getPlatformSettings);

@@ -23,6 +23,7 @@ export const AdminMenu: React.FC = () => {
   const [isSpecial, setIsSpecial] = useState(false);
   const [image, setImage] = useState('');
   const [prepTime, setPrepTime] = useState(15);
+  const [itemType, setItemType] = useState<'INHERIT' | 'FOOD' | 'COFFEE'>('INHERIT');
   const [submitting, setSubmitting] = useState(false);
 
   const fetchMenuData = async () => {
@@ -79,6 +80,7 @@ export const AdminMenu: React.FC = () => {
         categoryId,
         description: description.trim(),
         price: Number(price),
+        itemType: itemType === 'INHERIT' ? undefined : itemType,
         isVeg,
         isBestseller,
         isSpecial,
@@ -90,6 +92,7 @@ export const AdminMenu: React.FC = () => {
       setName('');
       setDescription('');
       setImage('');
+      setItemType('INHERIT');
       fetchMenuData();
     } catch (err: any) {
       alert(err.message || 'Failed to create item.');
@@ -178,7 +181,7 @@ export const AdminMenu: React.FC = () => {
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
-                      Switea Cafe
+                      RoastFuze Coffee Bar
                     </div>
                   )}
                   <div className="absolute top-2 left-2 flex gap-1">
@@ -197,6 +200,13 @@ export const AdminMenu: React.FC = () => {
                   <h3 className="font-serif font-bold text-base text-stone-900 leading-tight">
                     {item.name}
                   </h3>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto ${
+                    (item.itemType === 'COFFEE' || item.category?.itemType === 'COFFEE')
+                      ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                      : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                  }`}>
+                    {(item.itemType === 'COFFEE' || item.category?.itemType === 'COFFEE') ? '☕ Coffee' : '🍔 Food'}
+                  </span>
                 </div>
 
                 <p className="text-xs text-stone-500 line-clamp-2 mb-3">{item.description}</p>
@@ -333,6 +343,47 @@ export const AdminMenu: React.FC = () => {
                     />
                     <span>Chef's Special</span>
                   </label>
+                </div>
+
+                <div>
+                  <label className="text-xs uppercase tracking-wider font-bold text-stone-600 block mb-1">
+                    Loyalty Classification (Food vs Coffee)
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setItemType('INHERIT')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
+                        itemType === 'INHERIT'
+                          ? 'border-nature-900 bg-nature-50 text-nature-950 ring-1 ring-nature-900'
+                          : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      From Category
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItemType('FOOD')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
+                        itemType === 'FOOD'
+                          ? 'border-emerald-700 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-700'
+                          : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      🍔 Food
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItemType('COFFEE')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
+                        itemType === 'COFFEE'
+                          ? 'border-amber-700 bg-amber-50 text-amber-950 ring-1 ring-amber-700'
+                          : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      ☕ Coffee & Drinks
+                    </button>
+                  </div>
                 </div>
 
                 <div className="pt-4 flex items-center justify-end gap-3 border-t border-stone-100">

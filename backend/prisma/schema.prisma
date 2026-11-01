@@ -1,12 +1,13 @@
-// Prisma Schema for Switea Nature Cafe
+// Prisma Schema for RoastFuze Coffee Bar - Musical Balcony Cafe
 // Multi-tenant restaurant management, digital QR menu, and super-admin platform
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x", "rhel-openssl-1.0.x", "rhel-openssl-1.1.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -29,8 +30,14 @@ model Restaurant {
   id                 String   @id @default(uuid())
   name               String
   slug               String   @unique
-  description        String?
-  tagLine            String?  @default("A Sip of Sweetness")
+  description        String?    @db.Text
+  tagLine            String?  @default("Musical Balcony Cafe & Artisan Coffee Bar")
+  themeTemplate      String?  @default("BALCONY_MUSICAL")
+  primaryColor       String?  @default("#18181b")
+  secondaryColor     String?  @default("#d97706")
+  accentColor        String?  @default("#eab308")
+  bgCream            String?  @default("#fdfbf7")
+  photoLayout        String?  @default("bento")
   logo               String?
   coverImage         String?
   address            String
@@ -39,9 +46,9 @@ model Restaurant {
   postalCode         String   @default("302021")
   phone              String
   email              String
-  mapLink            String?
+  mapLink            String?    @db.Text
   whatsappNumber     String?
-  upiId              String?  @default("switeacafe@okhdfcbank")
+  upiId              String?  @default("9352182562@upi")
   openingHours       String   @default("10:00 AM - 11:00 PM")
   currency           String   @default("INR")
   currencySymbol     String   @default("₹")
@@ -50,6 +57,8 @@ model Restaurant {
   isOrderingEnabled  Boolean  @default(true)
   isPayAtCounterOnly Boolean  @default(false)
   isOpen             Boolean  @default(true)
+  isDeleted          Boolean  @default(false)
+  deletedAt          DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -64,6 +73,8 @@ model Restaurant {
   reviews            Review[]
   subscriptions      Subscription[]
   auditLogs          AuditLog[]
+  customerLoyalties  CustomerLoyalty[]
+  marketplaceConnections MarketplaceConnection[]
 }
 
 model RestaurantMembership {
@@ -79,15 +90,34 @@ model RestaurantMembership {
   @@unique([userId, restaurantId])
 }
 
+model MarketplaceConnection {
+  id                 String   @id @default(uuid())
+  restaurantId       String
+  provider           String   // SWIGGY or ZOMATO
+  status             String   @default("DISCONNECTED") // DISCONNECTED, CONNECTED, DEMO
+  restaurantHandle   String?
+  externalRestaurantId String?
+  apiToken           String?
+  webhookSecret      String?
+  statusUrl          String?
+  lastSyncAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  restaurant         Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, provider])
+}
+
 model LandingPageContent {
   id                 String     @id @default(uuid())
   restaurantId       String     @unique
   heroTitle          String     @default("Switea Nature Cafe")
-  heroSubtitle       String     @default("A serene garden escape serving handcrafted kulhad teas, artisan coffees & delectable bites in the heart of Jaipur.")
+  heroSubtitle       String?    @db.Text
   heroCtaText        String     @default("Explore Digital Menu")
   heroImage          String?
   aboutTitle         String     @default("Nature, Calm & Freshly Brewed Joy")
-  aboutText          String     @default("Nestled amidst lush greenery in Jaipur, Switea Nature Cafe was founded on a simple vision: to bring people together over steaming cups of pure, traditional chai and delicious comfort food in an earthy, open-air ambience.")
+  aboutText          String?    @db.Text
   aboutHighlight1    String     @default("Authentic Kulhad Chai & Teas")
   aboutHighlight2    String     @default("Garden & Nature Ambience")
   aboutHighlight3    String     @default("Fresh, Made-to-Order Delights")
@@ -98,7 +128,7 @@ model LandingPageContent {
   facebookUrl        String?
   mapEmbedUrl        String?
   metaTitle          String     @default("Switea Nature Cafe | Best Garden Cafe & Chai in Jaipur")
-  metaDescription    String     @default("Visit Switea Nature Cafe in Jaipur for signature kulhad chai, hand-crafted coffees, delicious burgers, pizzas and serene greenery.")
+  metaDescription    String?    @db.Text
   isPublished        Boolean    @default(true)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -123,8 +153,9 @@ model MenuCategory {
   restaurantId String
   name         String
   slug         String
-  description  String?
+  description        String?    @db.Text
   image        String?
+  itemType     String     @default("FOOD") // "FOOD" or "COFFEE"
   displayOrder Int        @default(0)
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
@@ -142,8 +173,9 @@ model MenuItem {
   categoryId      String
   name            String
   slug            String
-  description     String?
+  description        String?    @db.Text
   price           Float
+  itemType        String?        // "FOOD" or "COFFEE" (defaults to category itemType if null)
   isVeg           Boolean        @default(true)
   isBestseller    Boolean        @default(false)
   isSpecial       Boolean        @default(false)
@@ -266,12 +298,28 @@ model Order {
   tableId          String?
   diningSessionId  String?
   orderType        String          @default("DINE_IN") // DINE_IN, TAKEAWAY, DELIVERY
+  source           String          @default("DIRECT") // DIRECT, SWIGGY, ZOMATO
+  externalOrderId  String?
+  externalStatus   String?
+  externalPayload  String?
+  riderName        String?
+  riderPhone       String?
+  riderVehicle     String?
+  deliveryAddress  String?
+  deliveryLat      Float?
+  deliveryLng      Float?
+  deliveryEta      Int?
   customerName     String?
   customerPhone    String?
   notes            String?
   subtotal         Float
   taxAmount        Float
   discountAmount   Float           @default(0.0)
+  foodPointsEarned     Int         @default(0)
+  coffeePointsEarned   Int         @default(0)
+  foodPointsRedeemed   Int         @default(0)
+  coffeePointsRedeemed Int         @default(0)
+  loyaltyDiscount      Float       @default(0.0)
   totalAmount      Float
   status           String          @default("PENDING") // PENDING, ACCEPTED, PREPARING, READY, SERVED, CANCELLED
   paymentStatus    String          @default("PENDING") // PENDING, PAID, FAILED, REFUNDED
@@ -287,6 +335,7 @@ model Order {
   items            OrderItem[]
   payments         Payment[]
   redemptions      DiscountRedemption[]
+  loyaltyTransactions LoyaltyTransaction[]
 }
 
 model OrderItem {
@@ -294,6 +343,7 @@ model OrderItem {
   orderId    String
   menuItemId String?
   itemName   String
+  itemType   String              @default("FOOD") // "FOOD" or "COFFEE"
   unitPrice  Float
   quantity   Int
   totalPrice Float
@@ -370,7 +420,7 @@ model Review {
   restaurantId String
   customerName String
   rating       Int        @default(5)
-  comment      String
+  comment            String     @db.Text
   isApproved   Boolean    @default(true)
   createdAt    DateTime   @default(now())
 
@@ -419,4 +469,36 @@ model AuditLog {
 
   user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+}
+
+model CustomerLoyalty {
+  id                   String               @id @default(uuid())
+  restaurantId         String
+  customerPhone        String
+  customerName         String?
+  foodPoints           Int                  @default(0)
+  coffeePoints         Int                  @default(0)
+  lifetimeFoodPoints   Int                  @default(0)
+  lifetimeCoffeePoints Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  restaurant           Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  transactions         LoyaltyTransaction[]
+
+  @@unique([restaurantId, customerPhone])
+}
+
+model LoyaltyTransaction {
+  id                String          @id @default(uuid())
+  customerLoyaltyId String
+  orderId           String?
+  pointsType        String          // "FOOD" or "COFFEE"
+  points            Int             // + earned, - redeemed
+  reason            String          // "ORDER_EARNED", "ORDER_REDEEMED", "ADMIN_ADJUSTMENT"
+  description        String?    @db.Text
+  createdAt         DateTime        @default(now())
+
+  customerLoyalty   CustomerLoyalty @relation(fields: [customerLoyaltyId], references: [id], onDelete: Cascade)
+  order             Order?          @relation(fields: [orderId], references: [id], onDelete: SetNull)
 }

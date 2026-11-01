@@ -11,7 +11,7 @@ export const GalleryPage: React.FC = () => {
   useEffect(() => {
     async function loadGallery() {
       try {
-        const res = await api.getLandingPage('switea');
+        const res = await api.getLandingPage('roastfuze');
         if (res.gallery) {
           setImages(res.gallery);
         }
@@ -23,19 +23,19 @@ export const GalleryPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-cream-100 flex flex-col selection:bg-nature-200">
+    <div className="min-h-screen bg-cream-100 flex flex-col selection:bg-amber-200">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 flex-1 w-full">
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-          <span className="text-xs uppercase tracking-wider font-bold text-nature-700 block">
+          <span className="text-xs uppercase tracking-wider font-bold text-amber-800 block">
             Visual Ambiance
           </span>
           <h1 className="font-serif text-4xl sm:text-5xl font-bold text-stone-900">
-            Switea Nature Gallery
+            RoastFuze Balcony Gallery
           </h1>
           <p className="text-sm text-stone-600">
-            A glimpse into our leafy garden cafe corners, steaming clay kulhads, and evening fairy-light dinners.
+            A glimpse into our open-air musical balcony, rich espresso bar, velvety frappes, and live acoustic sessions.
           </p>
         </div>
 
@@ -52,7 +52,7 @@ export const GalleryPage: React.FC = () => {
                 loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6 text-white">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6 text-white">
                 <span className="font-serif font-bold text-base">{img.title}</span>
               </div>
             </div>
@@ -68,7 +68,7 @@ export const GalleryPage: React.FC = () => {
         >
           <div className="max-w-4xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl">
             <img src={selectedImage.imageUrl} alt={selectedImage.title} className="max-h-[80vh] w-auto object-contain" />
-            <p className="text-center text-white text-sm font-serif font-bold p-3 bg-nature-950">
+            <p className="text-center text-white text-sm font-serif font-bold p-3 bg-stone-950">
               {selectedImage.title}
             </p>
           </div>

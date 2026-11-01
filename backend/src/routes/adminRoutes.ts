@@ -5,6 +5,9 @@ import {
   updateRestaurantProfile,
   getLandingPageEditor,
   updateLandingPageEditor,
+  getWebsiteCustomizer,
+  updateWebsiteCustomizer,
+  toggleWebsitePublish,
   getGalleryImages,
   addGalleryImage,
   deleteGalleryImage,
@@ -21,9 +24,13 @@ import {
   createTable,
   regenerateTableQRToken,
   deleteTable,
+  freeTable,
+  freeAllTables,
   getOrders,
   updateOrderStatus,
   updateOrderPaymentStatus,
+  getMarketplaceConnections,
+  saveMarketplaceConnection,
   getKitchenQueue,
   getDiscounts,
   createDiscount,
@@ -34,11 +41,18 @@ import {
   toggleReviewApproval,
   handleImageUpload,
   getCustomers,
+  getCustomerLoyalty,
+  adjustCustomerLoyalty,
   getModifierGroups,
   createModifierGroup,
   deleteModifierGroup,
   addModifierOption,
   deleteModifierOption,
+  sendCustomerNotification,
+  getAdminNotificationHistory,
+  getAdminSongRequests,
+  updateAdminSongRequest,
+  getAdminEventRsvps,
 } from '../controllers/adminController';
 import { authenticateJWT, requireRestaurantAccess } from '../middleware/auth';
 import { uploadImage } from '../middleware/upload';
@@ -56,9 +70,12 @@ router.get('/analytics', getDashboardAnalytics);
 router.get('/profile', getRestaurantProfile);
 router.put('/profile', updateRestaurantProfile);
 
-// Landing page editor
+// Landing page editor & Visual Website Customizer
 router.get('/landing', getLandingPageEditor);
 router.put('/landing', updateLandingPageEditor);
+router.get('/customizer', getWebsiteCustomizer);
+router.put('/customizer', updateWebsiteCustomizer);
+router.patch('/customizer/toggle-publish', toggleWebsitePublish);
 
 // Gallery
 router.get('/gallery', getGalleryImages);
@@ -81,6 +98,8 @@ router.delete('/items/:id', deleteMenuItem);
 // Tables & QR Codes
 router.get('/tables', getTables);
 router.post('/tables', createTable);
+router.post('/tables/free-all', freeAllTables);
+router.post('/tables/:id/free', freeTable);
 router.post('/tables/:id/regenerate-qr', regenerateTableQRToken);
 router.delete('/tables/:id', deleteTable);
 
@@ -88,6 +107,10 @@ router.delete('/tables/:id', deleteTable);
 router.get('/orders', getOrders);
 router.put('/orders/:id/status', updateOrderStatus);
 router.put('/orders/:id/payment', updateOrderPaymentStatus);
+
+// Marketplace integrations
+router.get('/marketplace-connections', getMarketplaceConnections);
+router.put('/marketplace-connections/:provider', saveMarketplaceConnection);
 
 // Kitchen queue
 router.get('/kitchen', getKitchenQueue);
@@ -105,8 +128,10 @@ router.post('/team', createTeamMember);
 router.get('/reviews', getReviews);
 router.patch('/reviews/:id/approval', toggleReviewApproval);
 
-// Customers
+// Customers & Loyalty
 router.get('/customers', getCustomers);
+router.get('/customers/:phone/loyalty', getCustomerLoyalty);
+router.post('/customers/loyalty/adjust', adjustCustomerLoyalty);
 
 // Modifiers
 router.get('/modifiers', getModifierGroups);
@@ -114,6 +139,13 @@ router.post('/modifiers', createModifierGroup);
 router.delete('/modifiers/:id', deleteModifierGroup);
 router.post('/modifiers/options', addModifierOption);
 router.delete('/modifiers/options/:id', deleteModifierOption);
+
+// Push Notifications & Community Broadcasts
+router.post('/notifications/send', sendCustomerNotification);
+router.get('/notifications/history', getAdminNotificationHistory);
+router.get('/community/song-requests', getAdminSongRequests);
+router.patch('/community/song-requests/:id', updateAdminSongRequest);
+router.get('/community/rsvps', getAdminEventRsvps);
 
 // Uploads
 router.post('/upload', uploadImage.single('image'), handleImageUpload);

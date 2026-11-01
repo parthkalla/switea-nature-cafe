@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'switea_super_secret_jwt_token_auth_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'roastfuze_super_secret_jwt_token_auth_key_2026';
 
 export function signToken(user: { id: string; email: string; name: string; role: string; restaurantId?: string }): string {
   return jwt.sign(
@@ -59,7 +59,7 @@ export async function authenticateJWT(req: Request, res: Response, next: NextFun
       email: user.email,
       name: user.name,
       role: user.role,
-      restaurantId: defaultMembership?.restaurantId,
+      restaurantId: defaultMembership?.restaurantId || '281f2b53-a69a-4bb3-a390-b28b9053ef7e',
     };
     next();
   } catch (err) {

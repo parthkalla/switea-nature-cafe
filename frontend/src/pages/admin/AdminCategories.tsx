@@ -12,6 +12,7 @@ export const AdminCategories: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
+  const [itemType, setItemType] = useState<'FOOD' | 'COFFEE'>('FOOD');
   const [submitting, setSubmitting] = useState(false);
 
   const fetchCategories = async () => {
@@ -38,11 +39,13 @@ export const AdminCategories: React.FC = () => {
         name: name.trim(),
         description: description.trim(),
         image: image.trim() || undefined,
+        itemType,
       });
       setShowAdd(false);
       setName('');
       setDescription('');
       setImage('');
+      setItemType('FOOD');
       fetchCategories();
     } catch (err: any) {
       alert('Failed to create category.');
@@ -87,12 +90,21 @@ export const AdminCategories: React.FC = () => {
                     <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">
-                      Switea
+                      RoastFuze
                     </div>
                   )}
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-base text-stone-900">{cat.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif font-bold text-base text-stone-900">{cat.name}</h3>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      cat.itemType === 'COFFEE'
+                        ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                        : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                    }`}>
+                      {cat.itemType === 'COFFEE' ? '☕ Coffee' : '🍔 Food'}
+                    </span>
+                  </div>
                   <p className="text-xs text-stone-500 line-clamp-1">{cat.description || 'No description'}</p>
                   <span className="text-[11px] font-semibold text-nature-800 bg-nature-50 px-2 py-0.5 rounded-md mt-2 inline-block">
                     {cat._count?.items || 0} active dishes
@@ -139,6 +151,35 @@ export const AdminCategories: React.FC = () => {
                     placeholder="Crispy savory bites cooked fresh..."
                     className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800"
                   />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-wider font-bold text-stone-600 block mb-1">
+                    Loyalty Classification (Points Category)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setItemType('FOOD')}
+                      className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                        itemType === 'FOOD'
+                          ? 'border-emerald-700 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-700'
+                          : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      🍔 Food (Khana)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItemType('COFFEE')}
+                      className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                        itemType === 'COFFEE'
+                          ? 'border-amber-700 bg-amber-50 text-amber-950 ring-1 ring-amber-700'
+                          : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      ☕ Coffee & Drinks
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <ImageUploadField

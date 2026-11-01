@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /menu
+Allow: /about
+Allow: /gallery
+Allow: /contact
+Allow: /loyalty
+Disallow: /admin/
+Disallow: /super-admin/
+Disallow: /checkout
+Disallow: /cart
+
+Sitemap: https://roastfuze.com/sitemap.xml

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { ScrollToTop } from './components/layout/ScrollToTop';
 
 // Public Pages
 import { LandingPage } from './pages/public/LandingPage';
@@ -9,8 +10,11 @@ import { MenuPage } from './pages/public/MenuPage';
 import { CartPage } from './pages/public/CartPage';
 import { CheckoutPage } from './pages/public/CheckoutPage';
 import { OrderStatusPage } from './pages/public/OrderStatusPage';
+import { BillPage } from './pages/public/BillPage';
+import { CommunityPage } from './pages/public/CommunityPage';
 import { AboutPage } from './pages/public/AboutPage';
 import { ContactPage } from './pages/public/ContactPage';
+import { LoyaltyPage } from './pages/public/LoyaltyPage';
 import { GalleryPage } from './pages/public/GalleryPage';
 import { PrivacyPage } from './pages/public/PrivacyPage';
 import { TermsPage } from './pages/public/TermsPage';
@@ -25,6 +29,7 @@ import { AdminMenu } from './pages/admin/AdminMenu';
 import { AdminCategories } from './pages/admin/AdminCategories';
 import { AdminOffers } from './pages/admin/AdminOffers';
 import { AdminBranding } from './pages/admin/AdminBranding';
+import { AdminWebsiteCustomizer } from './pages/admin/AdminWebsiteCustomizer';
 import { AdminGallery } from './pages/admin/AdminGallery';
 import { AdminProfile } from './pages/admin/AdminProfile';
 import { AdminReviews } from './pages/admin/AdminReviews';
@@ -32,6 +37,8 @@ import { AdminTeam } from './pages/admin/AdminTeam';
 import { AdminAnalytics } from './pages/admin/AdminAnalytics';
 import { AdminModifiers } from './pages/admin/AdminModifiers';
 import { AdminCustomers } from './pages/admin/AdminCustomers';
+import { AdminMarketplace } from './pages/admin/AdminMarketplace';
+import { AdminNotifications } from './pages/admin/AdminNotifications';
 
 // Super Admin Pages
 import { SuperAdminLoginPage } from './pages/superAdmin/SuperAdminLoginPage';
@@ -58,22 +65,46 @@ const ProtectedSuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ chi
   return <>{children}</>;
 };
 
+const isSuperAdminHost = () => {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname.toLowerCase();
+  return h === 'admin.asrockstudios.in' || h === 'admin.localhost';
+};
+
 export const App: React.FC = () => {
+  const isSuperAdminDomain = isSuperAdminHost();
+
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <CartProvider>
           <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
+            {/* Super Admin Domain Root Redirect */}
+            {isSuperAdminDomain ? (
+              <>
+                <Route path="/" element={<Navigate to="/super-admin/dashboard" replace />} />
+                <Route path="/login" element={<SuperAdminLoginPage />} />
+              </>
+            ) : (
+              <Route path="/" element={<LandingPage />} />
+            )}
             <Route path="/menu" element={<MenuPage />} />
             <Route path="/menu/:restaurantSlug" element={<MenuPage />} />
             <Route path="/menu/:restaurantSlug/table/:tableToken" element={<MenuPage />} />
+            <Route path="/table/:tableToken" element={<MenuPage />} />
+            <Route path="/t/:tableToken" element={<MenuPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/order/:orderToken" element={<OrderStatusPage />} />
+            <Route path="/bill/:orderToken" element={<BillPage />} />
+            <Route path="/order/:orderToken/bill" element={<BillPage />} />
+            <Route path="/community" element={<CommunityPage />} />
+            <Route path="/events" element={<CommunityPage />} />
+            <Route path="/vip" element={<CommunityPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/loyalty" element={<LoyaltyPage />} />
             <Route path="/gallery" element={<GalleryPage />} />
             <Route path="/privacy-policy" element={<PrivacyPage />} />
             <Route path="/terms-and-conditions" element={<TermsPage />} />
@@ -90,8 +121,11 @@ export const App: React.FC = () => {
             <Route path="/admin/categories" element={<ProtectedAdminRoute><AdminCategories /></ProtectedAdminRoute>} />
             <Route path="/admin/modifiers" element={<ProtectedAdminRoute><AdminModifiers /></ProtectedAdminRoute>} />
             <Route path="/admin/customers" element={<ProtectedAdminRoute><AdminCustomers /></ProtectedAdminRoute>} />
+            <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
+            <Route path="/admin/marketplace" element={<ProtectedAdminRoute><AdminMarketplace /></ProtectedAdminRoute>} />
             <Route path="/admin/offers" element={<ProtectedAdminRoute><AdminOffers /></ProtectedAdminRoute>} />
-            <Route path="/admin/branding" element={<ProtectedAdminRoute><AdminBranding /></ProtectedAdminRoute>} />
+            <Route path="/admin/customizer" element={<ProtectedAdminRoute><AdminWebsiteCustomizer /></ProtectedAdminRoute>} />
+            <Route path="/admin/branding" element={<ProtectedAdminRoute><AdminWebsiteCustomizer /></ProtectedAdminRoute>} />
             <Route path="/admin/gallery" element={<ProtectedAdminRoute><AdminGallery /></ProtectedAdminRoute>} />
             <Route path="/admin/profile" element={<ProtectedAdminRoute><AdminProfile /></ProtectedAdminRoute>} />
             <Route path="/admin/settings" element={<ProtectedAdminRoute><AdminProfile /></ProtectedAdminRoute>} />
@@ -110,6 +144,9 @@ export const App: React.FC = () => {
             <Route path="/super-admin/analytics" element={<ProtectedSuperAdminRoute><SuperAdminAnalytics /></ProtectedSuperAdminRoute>} />
             <Route path="/super-admin/audit-logs" element={<ProtectedSuperAdminRoute><SuperAdminAuditLogs /></ProtectedSuperAdminRoute>} />
             <Route path="/super-admin/settings" element={<ProtectedSuperAdminRoute><SuperAdminSettings /></ProtectedSuperAdminRoute>} />
+
+            {/* Dynamic Multi-tenant Restaurant Website Routing */}
+            <Route path="/:restaurantSlug" element={<LandingPage />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

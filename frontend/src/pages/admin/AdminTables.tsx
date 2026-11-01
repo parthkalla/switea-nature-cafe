@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Printer, RefreshCw, Layers, QrCode, Search, Check, AlertCircle } from 'lucide-react';
+import { Plus, Printer, RefreshCw, Layers, QrCode, Search, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { QRCodeCard } from '../../components/qr/QRCodeCard';
 import { api } from '../../services/api';
@@ -80,6 +80,29 @@ export const AdminTables: React.FC = () => {
     }
   };
 
+  const handleFreeTable = async (tableId: string) => {
+    try {
+      await api.freeTable(tableId);
+      fetchTables();
+      setMessage('Table marked as AVAILABLE successfully.');
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to free table.');
+    }
+  };
+
+  const handleFreeAllTables = async () => {
+    if (!window.confirm('Reset all cafe tables to AVAILABLE? This will clear all stale dining sessions.')) return;
+    try {
+      await api.freeAllTables();
+      fetchTables();
+      setMessage('All cafe tables have been reset to AVAILABLE.');
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to reset tables.');
+    }
+  };
+
   const handlePrintAll = () => {
     window.print();
   };
@@ -97,6 +120,15 @@ export const AdminTables: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleFreeAllTables}
+              className="inline-flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-colors cursor-pointer"
+              title="Reset all tables to Available"
+            >
+              <CheckCircle2 className="w-4 h-4 text-amber-600" />
+              <span>Free All Tables</span>
+            </button>
+
             <button
               onClick={handlePrintAll}
               className="inline-flex items-center gap-2 bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-colors"
@@ -139,6 +171,7 @@ export const AdminTables: React.FC = () => {
                 table={table}
                 onRegenerate={handleRegenerate}
                 onDelete={handleDelete}
+                onFree={handleFreeTable}
               />
             ))}
           </div>

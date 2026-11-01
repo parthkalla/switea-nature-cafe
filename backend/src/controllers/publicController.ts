@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../config/db';
-import { emitNewOrder } from '../realtime/socket';
+import { emitNewOrder, emitNewReview, emitOrderStatusUpdated } from '../realtime/socket';
+import { buildLoyaltyWhatsAppLink, sendLoyaltyWhatsApp } from '../services/whatsapp';
 
 export async function getLandingPage(req: Request, res: Response) {
   try {
-    const slug = (req.params.slug || 'switea').toLowerCase().trim();
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const slug = (req.params.slug || 'roastfuze').toLowerCase().trim();
 
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug },
@@ -34,8 +36,13 @@ export async function getLandingPage(req: Request, res: Response) {
       },
     });
 
-    if (!restaurant) {
-      return res.status(404).json({ error: 'Restaurant not found.' });
+    if (!restaurant || restaurant.isDeleted) {
+      return res.status(404).json({ error: 'Restaurant not found or no longer available.' });
+    }
+
+    const isPreview = req.query.preview === 'true';
+    if (!isPreview && restaurant.landingContent && !restaurant.landingContent.isPublished) {
+      return res.status(404).json({ error: 'This restaurant website is currently unpublished.', isPublished: false });
     }
 
     // Featured bestsellers
@@ -45,7 +52,7 @@ export async function getLandingPage(req: Request, res: Response) {
         isBestseller: true,
         isAvailable: true,
       },
-      take: 6,
+      take: 12,
       include: {
         variants: true,
       },
@@ -57,6 +64,9 @@ export async function getLandingPage(req: Request, res: Response) {
         name: restaurant.name,
         slug: restaurant.slug,
         tagLine: restaurant.tagLine,
+        themeTemplate: (restaurant as any).themeTemplate || 'BALCONY_MUSICAL',
+        primaryColor: (restaurant as any).primaryColor || '#1A3C2B',
+        accentColor: (restaurant as any).accentColor || '#E8B042',
         description: restaurant.description,
         logo: restaurant.logo,
         coverImage: restaurant.coverImage,
@@ -89,7 +99,8 @@ export async function getLandingPage(req: Request, res: Response) {
 
 export async function getMenu(req: Request, res: Response) {
   try {
-    const slug = (req.params.slug || 'switea').toLowerCase().trim();
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const slug = (req.params.slug || 'roastfuze').toLowerCase().trim();
 
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug },
@@ -98,6 +109,12 @@ export async function getMenu(req: Request, res: Response) {
         name: true,
         slug: true,
         tagLine: true,
+        themeTemplate: true,
+        primaryColor: true,
+        secondaryColor: true,
+        accentColor: true,
+        bgCream: true,
+        photoLayout: true,
         description: true,
         logo: true,
         coverImage: true,
@@ -108,13 +125,20 @@ export async function getMenu(req: Request, res: Response) {
         isOrderingEnabled: true,
         isPayAtCounterOnly: true,
         isOpen: true,
+        isDeleted: true,
         phone: true,
         address: true,
+        landingContent: { select: { isPublished: true } },
       },
     });
 
-    if (!restaurant) {
-      return res.status(404).json({ error: 'Restaurant not found.' });
+    if (!restaurant || restaurant.isDeleted) {
+      return res.status(404).json({ error: 'Restaurant not found or no longer available.' });
+    }
+
+    const isPreview = req.query.preview === 'true';
+    if (!isPreview && restaurant.landingContent && !restaurant.landingContent.isPublished) {
+      return res.status(404).json({ error: 'This restaurant website is currently unpublished.', isPublished: false });
     }
 
     const categories = await prisma.menuCategory.findMany({
@@ -218,6 +242,86 @@ export async function getTableByToken(req: Request, res: Response) {
   }
 }
 
+export async function getPublicTables(req: Request, res: Response) {
+  try {
+    const slug = (req.query.slug as string) || 'roastfuze';
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { slug },
+      select: { id: true, isDeleted: true },
+    });
+
+    if (!restaurant || restaurant.isDeleted) {
+      return res.status(404).json({ error: 'Restaurant not found or no longer available.' });
+    }
+
+    // Auto-clean stale sessions older than 3 hours so tables never get permanently stuck
+    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    try {
+      await prisma.diningSession.updateMany({
+        where: {
+          status: 'ACTIVE',
+          startedAt: { lt: threeHoursAgo },
+        },
+        data: {
+          status: 'COMPLETED',
+          closedAt: new Date(),
+        },
+      });
+    } catch (e) {
+      // Non-critical background cleanup
+    }
+
+    const tables = await prisma.table.findMany({
+      where: {
+        restaurantId: restaurant.id,
+        isActive: true,
+        isArchived: false,
+      },
+      orderBy: { tableNumber: 'asc' },
+      include: {
+        qrCode: true,
+        sessions: {
+          where: {
+            status: 'ACTIVE',
+            startedAt: { gte: threeHoursAgo },
+          },
+          select: { id: true, startedAt: true },
+        },
+        orders: {
+          where: {
+            status: { in: ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'] },
+            paymentStatus: { not: 'PAID' },
+            createdAt: { gte: threeHoursAgo },
+          },
+          select: { id: true, orderNumber: true, status: true, paymentStatus: true },
+        },
+      },
+    });
+
+    const formattedTables = tables.map((t) => {
+      // A table is occupied ONLY if there is an active unserved/unpaid order placed within the last 3 hours
+      const hasActiveOrder = t.orders.length > 0;
+      const isOccupied = hasActiveOrder;
+
+      return {
+        id: t.id,
+        tableNumber: t.tableNumber,
+        name: t.name,
+        section: t.section,
+        capacity: t.capacity,
+        token: t.qrCode?.token || null,
+        isOccupied,
+        status: isOccupied ? 'OCCUPIED' : 'AVAILABLE',
+      };
+    });
+
+    return res.json({ tables: formattedTables });
+  } catch (err: any) {
+    console.error('getPublicTables error:', err);
+    return res.status(500).json({ error: 'Failed to fetch public tables.' });
+  }
+}
+
 interface CartItemInput {
   menuItemId: string;
   variantId?: string;
@@ -226,25 +330,112 @@ interface CartItemInput {
   notes?: string;
 }
 
+export function resolveItemType(
+  item: { itemType?: string | null },
+  category?: { itemType?: string | null } | null
+): 'FOOD' | 'COFFEE' {
+  if (item.itemType === 'COFFEE' || item.itemType === 'FOOD') {
+    return item.itemType;
+  }
+  if (category?.itemType === 'COFFEE' || category?.itemType === 'FOOD') {
+    return category.itemType;
+  }
+  return 'FOOD';
+}
+
+function phoneVariants(phone: string) {
+  const raw = phone.trim();
+  const digits = raw.replace(/\D/g, '');
+  const ten = digits.length === 12 && digits.startsWith('91')
+    ? digits.slice(2)
+    : digits.length === 11 && digits.startsWith('0')
+      ? digits.slice(1)
+      : digits;
+  return Array.from(new Set([raw, ten, `+91${ten}`, `+91 ${ten.slice(0, 5)} ${ten.slice(5)}`].filter(Boolean)));
+}
+
+export async function getLoyaltyBalance(req: Request, res: Response) {
+  try {
+    const phone = req.query.phone ? String(req.query.phone).trim() : '';
+    const slug = (req.query.slug ? String(req.query.slug).trim() : 'roastfuze').toLowerCase();
+
+    if (!phone) {
+      return res.status(400).json({ error: 'Customer phone number is required.' });
+    }
+
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { slug },
+      select: { id: true, name: true, isDeleted: true },
+    });
+
+    if (!restaurant || restaurant.isDeleted) {
+      return res.status(404).json({ error: 'Restaurant not found or no longer available.' });
+    }
+
+    const loyalty = await prisma.customerLoyalty.findFirst({
+      where: { restaurantId: restaurant.id, customerPhone: { in: phoneVariants(phone) } },
+    });
+
+    return res.json({
+      phone,
+      name: loyalty?.customerName || null,
+      foodPoints: loyalty?.foodPoints || 0,
+      coffeePoints: loyalty?.coffeePoints || 0,
+      lifetimeFoodPoints: loyalty?.lifetimeFoodPoints || 0,
+      lifetimeCoffeePoints: loyalty?.lifetimeCoffeePoints || 0,
+      foodPointsValue: (loyalty?.foodPoints || 0) * 1.0,
+      coffeePointsValue: (loyalty?.coffeePoints || 0) * 1.0,
+      earnRate: {
+        food: '1 Food Point per ₹10 spent on Food',
+        coffee: '1 Coffee Point per ₹10 spent on Coffee',
+      },
+    });
+  } catch (err: any) {
+    console.error('getLoyaltyBalance error:', err);
+    return res.status(500).json({ error: 'Failed to retrieve loyalty balance.' });
+  }
+}
+
 export async function calculateCart(req: Request, res: Response) {
   try {
-    const { restaurantSlug, items, discountCode } = req.body as {
+    const {
+      restaurantSlug,
+      items,
+      discountCode,
+      customerPhone,
+      redeemFoodPoints,
+      redeemCoffeePoints,
+    } = req.body as {
       restaurantSlug: string;
       items: CartItemInput[];
       discountCode?: string;
+      customerPhone?: string;
+      redeemFoodPoints?: number;
+      redeemCoffeePoints?: number;
     };
 
     const restaurant = await prisma.restaurant.findUnique({
-      where: { slug: restaurantSlug || 'switea' },
+      where: { slug: restaurantSlug || 'roastfuze' },
     });
 
-    if (!restaurant) {
-      return res.status(404).json({ error: 'Restaurant not found.' });
+    if (!restaurant || restaurant.isDeleted) {
+      return res.status(404).json({ error: 'Restaurant not found or no longer available.' });
     }
 
     if (!items || items.length === 0) {
       return res.json({
         subtotal: 0,
+        foodSubtotal: 0,
+        coffeeSubtotal: 0,
+        potentialFoodPoints: 0,
+        potentialCoffeePoints: 0,
+        availableFoodPoints: 0,
+        availableCoffeePoints: 0,
+        maxRedeemableFoodPoints: 0,
+        maxRedeemableCoffeePoints: 0,
+        foodPointsRedeemed: 0,
+        coffeePointsRedeemed: 0,
+        loyaltyDiscount: 0,
         discountAmount: 0,
         taxAmount: 0,
         totalAmount: 0,
@@ -253,12 +444,15 @@ export async function calculateCart(req: Request, res: Response) {
     }
 
     let subtotal = 0;
+    let foodSubtotal = 0;
+    let coffeeSubtotal = 0;
     const validatedItems = [];
 
     for (const input of items) {
       const item = await prisma.menuItem.findUnique({
         where: { id: input.menuItemId },
         include: {
+          category: true,
           variants: true,
           modifierGroups: {
             include: { options: true },
@@ -269,6 +463,8 @@ export async function calculateCart(req: Request, res: Response) {
       if (!item || !item.isAvailable) {
         continue;
       }
+
+      const itemType = resolveItemType(item, item.category);
 
       let unitPrice = item.price;
       let variantName: string | undefined;
@@ -299,25 +495,33 @@ export async function calculateCart(req: Request, res: Response) {
         }
       }
 
-      const itemTotal = (unitPrice + modifiersPrice) * Math.max(1, input.quantity);
+      const quantity = Math.max(1, input.quantity);
+      const itemTotal = (unitPrice + modifiersPrice) * quantity;
       subtotal += itemTotal;
+
+      if (itemType === 'COFFEE') {
+        coffeeSubtotal += itemTotal;
+      } else {
+        foodSubtotal += itemTotal;
+      }
 
       validatedItems.push({
         menuItemId: item.id,
         name: item.name,
+        itemType,
         variantName,
         unitPrice,
         modifiersPrice,
         modifiers: selectedModifiers,
-        quantity: Math.max(1, input.quantity),
+        quantity,
         totalPrice: itemTotal,
         notes: input.notes,
       });
     }
 
+    // Coupon discount logic
     let discountAmount = 0;
     let appliedDiscount: any = null;
-
     let discountError: string | null = null;
     let minOrderAmountRequired: number | null = null;
 
@@ -358,12 +562,66 @@ export async function calculateCart(req: Request, res: Response) {
       }
     }
 
-    const discountedSubtotal = Math.max(0, subtotal - discountAmount);
+    // Dual Loyalty Points logic
+    // 1 Food Point earned per ₹10 spent on Food
+    // 1 Coffee Point earned per ₹10 spent on Coffee
+    const potentialFoodPoints = Math.floor(foodSubtotal / 10);
+    const potentialCoffeePoints = Math.floor(coffeeSubtotal / 10);
+
+    let availableFoodPoints = 0;
+    let availableCoffeePoints = 0;
+
+    if (customerPhone && customerPhone.trim()) {
+      const cleanPhone = customerPhone.trim();
+      const loyalty = await prisma.customerLoyalty.findUnique({
+        where: {
+          restaurantId_customerPhone: {
+            restaurantId: restaurant.id,
+            customerPhone: cleanPhone,
+          },
+        },
+      });
+      if (loyalty) {
+        availableFoodPoints = loyalty.foodPoints;
+        availableCoffeePoints = loyalty.coffeePoints;
+      }
+    }
+
+    // Max redeemable: cannot exceed user's balance and cannot exceed food/coffee portions
+    const maxRedeemableFoodPoints = Math.min(availableFoodPoints, Math.floor(foodSubtotal));
+    const maxRedeemableCoffeePoints = Math.min(availableCoffeePoints, Math.floor(coffeeSubtotal));
+
+    let foodPointsRedeemed = 0;
+    if (redeemFoodPoints && Number(redeemFoodPoints) > 0) {
+      foodPointsRedeemed = Math.min(Number(redeemFoodPoints), maxRedeemableFoodPoints);
+    }
+
+    let coffeePointsRedeemed = 0;
+    if (redeemCoffeePoints && Number(redeemCoffeePoints) > 0) {
+      coffeePointsRedeemed = Math.min(Number(redeemCoffeePoints), maxRedeemableCoffeePoints);
+    }
+
+    // 1 point = ₹1 discount
+    const loyaltyDiscount = foodPointsRedeemed + coffeePointsRedeemed;
+
+    const totalDeductions = discountAmount + loyaltyDiscount;
+    const discountedSubtotal = Math.max(0, subtotal - totalDeductions);
     const taxAmount = Number(((discountedSubtotal * restaurant.taxPercent) / 100).toFixed(2));
     const totalAmount = Number((discountedSubtotal + taxAmount).toFixed(2));
 
     return res.json({
       subtotal: Number(subtotal.toFixed(2)),
+      foodSubtotal: Number(foodSubtotal.toFixed(2)),
+      coffeeSubtotal: Number(coffeeSubtotal.toFixed(2)),
+      potentialFoodPoints,
+      potentialCoffeePoints,
+      availableFoodPoints,
+      availableCoffeePoints,
+      maxRedeemableFoodPoints,
+      maxRedeemableCoffeePoints,
+      foodPointsRedeemed,
+      coffeePointsRedeemed,
+      loyaltyDiscount: Number(loyaltyDiscount.toFixed(2)),
       discountAmount: Number(discountAmount.toFixed(2)),
       discount: appliedDiscount,
       discountError,
@@ -390,15 +648,17 @@ export async function createOrder(req: Request, res: Response) {
       customerPhone,
       notes,
       discountCode,
+      redeemFoodPoints,
+      redeemCoffeePoints,
       paymentMethod = 'CASH',
     } = req.body;
 
     const restaurant = await prisma.restaurant.findUnique({
-      where: { slug: restaurantSlug || 'switea' },
+      where: { slug: restaurantSlug || 'roastfuze' },
     });
 
-    if (!restaurant) {
-      return res.status(404).json({ error: 'Restaurant not found.' });
+    if (!restaurant || restaurant.isDeleted) {
+      return res.status(404).json({ error: 'Restaurant not found or no longer available.' });
     }
 
     if (!restaurant.isOpen) {
@@ -453,12 +713,15 @@ export async function createOrder(req: Request, res: Response) {
     }
 
     let subtotal = 0;
+    let foodSubtotal = 0;
+    let coffeeSubtotal = 0;
     const orderItemsData: any[] = [];
 
     for (const input of items) {
       const item = await prisma.menuItem.findUnique({
         where: { id: input.menuItemId },
         include: {
+          category: true,
           variants: true,
           modifierGroups: {
             include: { options: true },
@@ -469,6 +732,8 @@ export async function createOrder(req: Request, res: Response) {
       if (!item || !item.isAvailable) {
         return res.status(400).json({ error: `Item "${item?.name || 'Unknown'}" is currently unavailable.` });
       }
+
+      const itemType = resolveItemType(item, item.category);
 
       let unitPrice = item.price;
       let itemName = item.name;
@@ -503,9 +768,16 @@ export async function createOrder(req: Request, res: Response) {
       const totalPrice = (unitPrice + modifiersPrice) * quantity;
       subtotal += totalPrice;
 
+      if (itemType === 'COFFEE') {
+        coffeeSubtotal += totalPrice;
+      } else {
+        foodSubtotal += totalPrice;
+      }
+
       orderItemsData.push({
         menuItemId: item.id,
         itemName,
+        itemType,
         unitPrice: unitPrice + modifiersPrice,
         quantity,
         totalPrice,
@@ -514,7 +786,7 @@ export async function createOrder(req: Request, res: Response) {
       });
     }
 
-    // Apply Discount if applicable
+    // Apply Coupon Discount if applicable
     let discountAmount = 0;
     let validDiscountId: string | null = null;
 
@@ -541,13 +813,64 @@ export async function createOrder(req: Request, res: Response) {
       }
     }
 
-    const discountedSubtotal = Math.max(0, subtotal - discountAmount);
+    // Dual Loyalty Points:
+    // Food Points can only be redeemed against Food subtotal
+    // Coffee Points can only be redeemed against Coffee subtotal
+    let loyaltyRecord: any = null;
+    let actualFoodRedeemed = 0;
+    let actualCoffeeRedeemed = 0;
+    const cleanPhone = customerPhone ? String(customerPhone).trim() : null;
+
+    if (cleanPhone) {
+      loyaltyRecord = await prisma.customerLoyalty.findUnique({
+        where: {
+          restaurantId_customerPhone: {
+            restaurantId: restaurant.id,
+            customerPhone: cleanPhone,
+          },
+        },
+      });
+
+      if (!loyaltyRecord) {
+        loyaltyRecord = await prisma.customerLoyalty.create({
+          data: {
+            restaurantId: restaurant.id,
+            customerPhone: cleanPhone,
+            customerName: customerName ? String(customerName).trim() : null,
+          },
+        });
+      } else if (customerName && !loyaltyRecord.customerName) {
+        loyaltyRecord = await prisma.customerLoyalty.update({
+          where: { id: loyaltyRecord.id },
+          data: { customerName: String(customerName).trim() },
+        });
+      }
+
+      const maxFoodRedeem = Math.min(loyaltyRecord.foodPoints, Math.floor(foodSubtotal));
+      const maxCoffeeRedeem = Math.min(loyaltyRecord.coffeePoints, Math.floor(coffeeSubtotal));
+
+      if (redeemFoodPoints && Number(redeemFoodPoints) > 0) {
+        actualFoodRedeemed = Math.min(Number(redeemFoodPoints), maxFoodRedeem);
+      }
+      if (redeemCoffeePoints && Number(redeemCoffeePoints) > 0) {
+        actualCoffeeRedeemed = Math.min(Number(redeemCoffeePoints), maxCoffeeRedeem);
+      }
+    }
+
+    // 1 Point = ₹1 discount
+    const loyaltyDiscount = actualFoodRedeemed + actualCoffeeRedeemed;
+
+    // Earn rates: 1 Food point per ₹10 on food, 1 Coffee point per ₹10 on coffee
+    const foodPointsEarned = Math.floor(foodSubtotal / 10);
+    const coffeePointsEarned = Math.floor(coffeeSubtotal / 10);
+
+    const discountedSubtotal = Math.max(0, subtotal - discountAmount - loyaltyDiscount);
     const taxAmount = Number(((discountedSubtotal * restaurant.taxPercent) / 100).toFixed(2));
     const totalAmount = Number((discountedSubtotal + taxAmount).toFixed(2));
 
     // Unique order number and public order token
     const count = await prisma.order.count({ where: { restaurantId: restaurant.id } });
-    const orderNumber = `SW-${1001 + count}`;
+    const orderNumber = `RF-${1001 + count}`;
     const orderToken = `ord-${crypto.randomBytes(12).toString('hex')}`;
 
     // Persist Order and Items atomically
@@ -560,10 +883,15 @@ export async function createOrder(req: Request, res: Response) {
         diningSessionId,
         orderType,
         customerName: customerName ? String(customerName).trim() : null,
-        customerPhone: customerPhone ? String(customerPhone).trim() : null,
+        customerPhone: cleanPhone,
         notes: notes ? String(notes).trim() : null,
         subtotal,
         discountAmount,
+        foodPointsEarned,
+        coffeePointsEarned,
+        foodPointsRedeemed: actualFoodRedeemed,
+        coffeePointsRedeemed: actualCoffeeRedeemed,
+        loyaltyDiscount,
         taxAmount,
         totalAmount,
         status: 'PENDING',
@@ -573,6 +901,7 @@ export async function createOrder(req: Request, res: Response) {
           create: orderItemsData.map((oi) => ({
             menuItemId: oi.menuItemId,
             itemName: oi.itemName,
+            itemType: oi.itemType,
             unitPrice: oi.unitPrice,
             quantity: oi.quantity,
             totalPrice: oi.totalPrice,
@@ -621,6 +950,99 @@ export async function createOrder(req: Request, res: Response) {
       });
     }
 
+    // Process Loyalty Updates & Transactions
+    let updatedLoyaltyRecord: any = null;
+    if (loyaltyRecord) {
+      updatedLoyaltyRecord = await prisma.customerLoyalty.update({
+        where: { id: loyaltyRecord.id },
+        data: {
+          foodPoints: {
+            increment: foodPointsEarned - actualFoodRedeemed,
+          },
+          coffeePoints: {
+            increment: coffeePointsEarned - actualCoffeeRedeemed,
+          },
+          lifetimeFoodPoints: {
+            increment: foodPointsEarned,
+          },
+          lifetimeCoffeePoints: {
+            increment: coffeePointsEarned,
+          },
+        },
+      });
+
+      // Log transactions
+      if (actualFoodRedeemed > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'FOOD',
+            points: -actualFoodRedeemed,
+            reason: 'ORDER_REDEEMED',
+            description: `Redeemed ${actualFoodRedeemed} Food points on Order #${orderNumber}`,
+          },
+        });
+      }
+
+      if (actualCoffeeRedeemed > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'COFFEE',
+            points: -actualCoffeeRedeemed,
+            reason: 'ORDER_REDEEMED',
+            description: `Redeemed ${actualCoffeeRedeemed} Coffee points on Order #${orderNumber}`,
+          },
+        });
+      }
+
+      if (foodPointsEarned > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'FOOD',
+            points: foodPointsEarned,
+            reason: 'ORDER_EARNED',
+            description: `Earned ${foodPointsEarned} Food points from Order #${orderNumber}`,
+          },
+        });
+      }
+
+      if (coffeePointsEarned > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'COFFEE',
+            points: coffeePointsEarned,
+            reason: 'ORDER_EARNED',
+            description: `Earned ${coffeePointsEarned} Coffee points from Order #${orderNumber}`,
+          },
+        });
+      }
+    }
+
+    const whatsappNotification = cleanPhone
+      ? {
+          phone: cleanPhone,
+          customerName: order.customerName,
+          orderNumber: order.orderNumber,
+          orderToken: order.orderToken,
+          foodPointsEarned,
+          coffeePointsEarned,
+          foodPointsBalance: updatedLoyaltyRecord?.foodPoints || 0,
+          coffeePointsBalance: updatedLoyaltyRecord?.coffeePoints || 0,
+        }
+      : null;
+
+    // Do not make order placement depend on WhatsApp availability.
+    if (whatsappNotification) {
+      void sendLoyaltyWhatsApp(whatsappNotification);
+    }
+
     // Emit realtime event to restaurant staff & kitchen
     emitNewOrder(restaurant.id, {
       ...order,
@@ -635,6 +1057,18 @@ export async function createOrder(req: Request, res: Response) {
       status: order.status,
       paymentMethod: order.paymentMethod,
       tableNumber: order.table?.tableNumber,
+      loyalty: {
+        foodPointsEarned,
+        coffeePointsEarned,
+        foodPointsRedeemed: actualFoodRedeemed,
+        coffeePointsRedeemed: actualCoffeeRedeemed,
+        loyaltyDiscount,
+        newFoodPointsBalance: updatedLoyaltyRecord ? updatedLoyaltyRecord.foodPoints : 0,
+        newCoffeePointsBalance: updatedLoyaltyRecord ? updatedLoyaltyRecord.coffeePoints : 0,
+      },
+      whatsapp: whatsappNotification
+        ? { status: 'QUEUED', fallbackUrl: buildLoyaltyWhatsAppLink(whatsappNotification) }
+        : { status: 'SKIPPED', fallbackUrl: null },
     });
   } catch (err: any) {
     console.error('createOrder error:', err);
@@ -674,6 +1108,24 @@ export async function getOrderStatus(req: Request, res: Response) {
       return res.status(404).json({ error: 'Order not found.' });
     }
 
+    let customerLoyalty = null;
+    if (order.customerPhone) {
+      customerLoyalty = await prisma.customerLoyalty.findUnique({
+        where: {
+          restaurantId_customerPhone: {
+            restaurantId: order.restaurantId,
+            customerPhone: order.customerPhone.trim(),
+          },
+        },
+        select: {
+          foodPoints: true,
+          coffeePoints: true,
+          lifetimeFoodPoints: true,
+          lifetimeCoffeePoints: true,
+        },
+      });
+    }
+
     return res.json({
       orderNumber: order.orderNumber,
       orderToken: order.orderToken,
@@ -686,6 +1138,24 @@ export async function getOrderStatus(req: Request, res: Response) {
       items: order.items,
       subtotal: order.subtotal,
       discountAmount: order.discountAmount,
+      foodPointsEarned: order.foodPointsEarned,
+      coffeePointsEarned: order.coffeePointsEarned,
+      foodPointsRedeemed: order.foodPointsRedeemed,
+      coffeePointsRedeemed: order.coffeePointsRedeemed,
+      loyaltyDiscount: order.loyaltyDiscount,
+      customerLoyalty,
+      whatsappLink: order.customerPhone && customerLoyalty
+        ? buildLoyaltyWhatsAppLink({
+            phone: order.customerPhone,
+            customerName: order.customerName,
+            orderNumber: order.orderNumber,
+            orderToken: order.orderToken,
+            foodPointsEarned: order.foodPointsEarned,
+            coffeePointsEarned: order.coffeePointsEarned,
+            foodPointsBalance: customerLoyalty.foodPoints,
+            coffeePointsBalance: customerLoyalty.coffeePoints,
+          })
+        : null,
       taxAmount: order.taxAmount,
       totalAmount: order.totalAmount,
       estimatedPrepTime: order.estimatedPrepTime,
@@ -700,7 +1170,7 @@ export async function getOrderStatus(req: Request, res: Response) {
 
 export async function createReview(req: Request, res: Response) {
   try {
-    const slug = (req.params.slug || 'switea').toLowerCase().trim();
+    const slug = (req.params.slug || 'roastfuze').toLowerCase().trim();
     const { customerName, rating, comment } = req.body;
 
     if (!customerName || !rating || !comment) {
@@ -708,8 +1178,8 @@ export async function createReview(req: Request, res: Response) {
     }
 
     const restaurant = await prisma.restaurant.findUnique({ where: { slug } });
-    if (!restaurant) {
-      return res.status(404).json({ error: 'Restaurant not found.' });
+    if (!restaurant || restaurant.isDeleted) {
+      return res.status(404).json({ error: 'Restaurant not found or no longer available.' });
     }
 
     const review = await prisma.review.create({
@@ -721,6 +1191,9 @@ export async function createReview(req: Request, res: Response) {
         isApproved: true, // Auto-approve or admin can toggle
       },
     });
+
+    // Notify cafe admin in real time
+    emitNewReview(restaurant.id, review);
 
     return res.status(201).json({ success: true, review });
   } catch (err: any) {
@@ -749,11 +1222,10 @@ export async function confirmOrderPayment(req: Request, res: Response) {
         paymentMethod,
         payments: {
           create: {
-            restaurantId: order.restaurantId,
             amount: order.totalAmount,
-            provider: paymentMethod,
-            status: 'COMPLETED',
-            transactionRef: utrNumber ? String(utrNumber).trim() : `UPI-${Date.now()}`,
+            method: paymentMethod,
+            status: 'SUCCESS',
+            transactionId: utrNumber ? String(utrNumber).trim() : `UPI-${Date.now()}`,
           },
         },
       },
@@ -763,9 +1235,292 @@ export async function confirmOrderPayment(req: Request, res: Response) {
       },
     });
 
+    // If order is associated with a table, close the active dining session to free the table immediately
+    if (order.tableId) {
+      await prisma.diningSession.updateMany({
+        where: { tableId: order.tableId, status: 'ACTIVE' },
+        data: { status: 'COMPLETED', closedAt: new Date() },
+      });
+    }
+
+    // Real-time broadcast to admin and kitchen display
+    emitOrderStatusUpdated(updated.restaurantId, updated.orderToken, updated.status, updated);
+
     return res.json({ success: true, order: updated });
   } catch (err: any) {
     console.error('confirmOrderPayment error:', err);
     return res.status(500).json({ error: 'Failed to confirm payment.' });
   }
 }
+
+// ----------------------------------------------------
+// PAYMENT GATEWAY WEBHOOK VERIFICATION (PhonePe & Paytm)
+// ----------------------------------------------------
+export async function handlePhonePeWebhook(req: Request, res: Response) {
+  try {
+    const rawBody = req.body;
+    let payload = rawBody;
+
+    // PhonePe sends { response: "<base64>" }
+    if (rawBody && rawBody.response) {
+      try {
+        const decoded = Buffer.from(rawBody.response, 'base64').toString('utf-8');
+        payload = JSON.parse(decoded);
+      } catch (e) {
+        console.warn('Could not base64 decode PhonePe webhook response, using raw body:', e);
+      }
+    }
+
+    const data = payload?.data || payload;
+    const isSuccess =
+      payload?.success === true ||
+      payload?.code === 'PAYMENT_SUCCESS' ||
+      data?.responseCode === 'SUCCESS' ||
+      data?.state === 'COMPLETED';
+
+    const transactionId =
+      data?.merchantTransactionId ||
+      data?.transactionId ||
+      (req.query.orderToken as string) ||
+      (req.query.orderId as string);
+
+    const utr =
+      data?.paymentInstrument?.utr ||
+      data?.paymentInstrument?.bankTransactionId ||
+      data?.transactionId ||
+      `PHONEPE-${Date.now()}`;
+
+    const amountPaid = data?.amount ? Number(data.amount) / 100 : undefined; // paise to INR
+
+    if (!transactionId) {
+      return res.status(200).json({ success: true, message: 'Webhook received but no transaction ID provided.' });
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { orderToken: String(transactionId) },
+          { id: String(transactionId) },
+          { orderNumber: String(transactionId).replace(/^RF-/, '') },
+          { orderNumber: String(transactionId) },
+        ],
+      },
+      include: { table: true, items: true },
+    });
+
+    if (!order) {
+      console.warn(`PhonePe Webhook: Order ${transactionId} not found`);
+      return res.status(200).json({ success: true, message: 'Order not found, acknowledged.' });
+    }
+
+    if (isSuccess && order.paymentStatus !== 'PAID') {
+      const updated = await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: 'PAID',
+          paymentMethod: 'PHONEPE_BUSINESS',
+          payments: {
+            create: {
+              amount: amountPaid || order.totalAmount,
+              method: 'PHONEPE_BUSINESS',
+              status: 'SUCCESS',
+              transactionId: String(utr),
+              notes: 'Auto-verified via PhonePe for Business Webhook API',
+            },
+          },
+        },
+        include: { table: true, items: true },
+      });
+
+      if (order.tableId) {
+        await prisma.diningSession.updateMany({
+          where: { tableId: order.tableId, status: 'ACTIVE' },
+          data: { status: 'COMPLETED', closedAt: new Date() },
+        });
+      }
+
+      emitOrderStatusUpdated(order.restaurantId, order.orderToken, updated.status, updated);
+      console.log(`✅ Order ${order.orderNumber} auto-verified as PAID via PhonePe Webhook (UTR: ${utr})`);
+    }
+
+    return res.status(200).json({ success: true, message: 'PhonePe webhook processed successfully' });
+  } catch (err: any) {
+    console.error('PhonePe Webhook Error:', err);
+    return res.status(200).json({ success: true, message: 'Error logged' });
+  }
+}
+
+export async function handlePaytmWebhook(req: Request, res: Response) {
+  try {
+    const body = req.body || {};
+    const orderId = body.ORDERID || (req.query.orderId as string);
+    const status = body.STATUS;
+    const utr = body.BANKTXNID || body.TXNID || `PAYTM-${Date.now()}`;
+    const amount = body.TXNAMOUNT ? Number(body.TXNAMOUNT) : undefined;
+
+    if (!orderId) {
+      return res.status(200).json({ success: true, message: 'No ORDERID' });
+    }
+
+    const isSuccess = status === 'TXN_SUCCESS';
+
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [
+          { orderToken: String(orderId) },
+          { id: String(orderId) },
+          { orderNumber: String(orderId).replace(/^RF-/, '') },
+          { orderNumber: String(orderId) },
+        ],
+      },
+      include: { table: true, items: true },
+    });
+
+    if (!order) {
+      return res.status(200).json({ success: true, message: 'Order not found' });
+    }
+
+    if (isSuccess && order.paymentStatus !== 'PAID') {
+      const updated = await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: 'PAID',
+          paymentMethod: 'PAYTM_BUSINESS',
+          payments: {
+            create: {
+              amount: amount || order.totalAmount,
+              method: 'PAYTM_BUSINESS',
+              status: 'SUCCESS',
+              transactionId: String(utr),
+              notes: 'Auto-verified via Paytm for Business Webhook API',
+            },
+          },
+        },
+        include: { table: true, items: true },
+      });
+
+      if (order.tableId) {
+        await prisma.diningSession.updateMany({
+          where: { tableId: order.tableId, status: 'ACTIVE' },
+          data: { status: 'COMPLETED', closedAt: new Date() },
+        });
+      }
+
+      emitOrderStatusUpdated(order.restaurantId, order.orderToken, updated.status, updated);
+      console.log(`✅ Order ${order.orderNumber} auto-verified as PAID via Paytm Webhook (UTR: ${utr})`);
+    }
+
+    return res.status(200).json({ success: true, message: 'Paytm webhook processed' });
+  } catch (err: any) {
+    console.error('Paytm Webhook Error:', err);
+    return res.status(200).json({ success: true, message: 'Error logged' });
+  }
+}
+
+// ----------------------------------------------------
+// COMMUNITY, EVENTS & SONG REQUESTS
+// ----------------------------------------------------
+import { addSongRequest, getSongRequests, addEventRsvp, getEventRsvps } from '../realtime/socket';
+
+export async function getPublicCommunityEvents(req: Request, res: Response) {
+  const events = [
+    {
+      id: 'diwali-night-2026',
+      title: 'Diwali Acoustic Balcony Night 🪔',
+      subtitle: 'Deepotsav Live Unplugged Jam & Balcony Fairy Lights',
+      date: 'Sunday, 1 Nov 2026',
+      time: '7:00 PM – 11:30 PM',
+      badge: 'Diwali Special',
+      description:
+        'Celebrate the festival of lights on RoastFuze’s musical balcony with 100+ handmade diyas, live unplugged acoustic guitarists, and our special festive warm desserts.',
+      offerText: 'Complimentary Warm Brownie or Festive Waffle on orders above ₹399',
+      couponCode: 'DIWALIROAST',
+      discountPercent: 20,
+      image: '/uploads/gallery_musical_interior.jpg',
+      isRsvpOpen: true,
+    },
+    {
+      id: 'friday-jam-sessions',
+      title: 'Friday Indie Sunset Jam Sessions 🎸',
+      subtitle: 'Open Mic, Acoustic Guitars & Cold Brews',
+      date: 'Every Friday Evening',
+      time: '6:30 PM – 9:30 PM',
+      badge: 'Weekly Feature',
+      description:
+        'Bring your guitar, ukulele, or just your voice. An open jam session for Jaipur music lovers overlooking the sunset.',
+      offerText: '15% Off for all performing musicians and open-mic artists',
+      couponCode: 'JAMROAST',
+      discountPercent: 15,
+      image: '/uploads/gallery_coffee_table.jpg',
+      isRsvpOpen: true,
+    },
+    {
+      id: 'sunday-barista-masterclass',
+      title: 'Sunday Pour-Over & Latte Art Workshop ☕',
+      subtitle: 'Master the Craft with RoastFuze Head Barista',
+      date: 'Every Sunday Morning',
+      time: '11:00 AM – 1:00 PM',
+      badge: 'Workshop',
+      description:
+        'Discover the secrets of specialty coffee: roast profiles, V60 pour-over techniques, and micro-foam pouring for perfect heart & rosetta latte art.',
+      offerText: 'Free 100g freshly roasted sample pouch to all participants',
+      couponCode: 'BARISTA10',
+      discountPercent: 10,
+      image: '/uploads/gallery_balcony_exterior.jpg',
+      isRsvpOpen: true,
+    },
+  ];
+
+  return res.json({ events });
+}
+
+export async function createSongRequest(req: Request, res: Response) {
+  try {
+    const { customerName, customerPhone, tableNumber, songTitle, artist, notes } = req.body;
+    if (!customerName || !songTitle) {
+      return res.status(400).json({ error: 'Customer name and song title are required.' });
+    }
+
+    const request = addSongRequest({
+      customerName: String(customerName).trim(),
+      customerPhone: customerPhone ? String(customerPhone).trim() : undefined,
+      tableNumber: tableNumber ? String(tableNumber).trim() : 'Balcony Seat',
+      songTitle: String(songTitle).trim(),
+      artist: artist ? String(artist).trim() : 'Artist not specified',
+      notes: notes ? String(notes).trim() : undefined,
+    });
+
+    return res.json({ success: true, request });
+  } catch (err: any) {
+    console.error('createSongRequest error:', err);
+    return res.status(500).json({ error: 'Failed to submit song request.' });
+  }
+}
+
+export async function getPublicSongRequests(req: Request, res: Response) {
+  return res.json({ requests: getSongRequests() });
+}
+
+export async function createEventRsvp(req: Request, res: Response) {
+  try {
+    const { name, phone, eventId, eventTitle, guestsCount, notes } = req.body;
+    if (!name || !phone || !eventId) {
+      return res.status(400).json({ error: 'Name, phone and event are required.' });
+    }
+
+    const rsvp = addEventRsvp({
+      name: String(name).trim(),
+      phone: String(phone).trim(),
+      eventId: String(eventId),
+      eventTitle: eventTitle || 'RoastFuze Event',
+      guestsCount: Number(guestsCount) || 2,
+      notes: notes ? String(notes).trim() : undefined,
+    });
+
+    return res.json({ success: true, rsvp });
+  } catch (err: any) {
+    console.error('createEventRsvp error:', err);
+    return res.status(500).json({ error: 'Failed to record RSVP.' });
+  }
+}
+

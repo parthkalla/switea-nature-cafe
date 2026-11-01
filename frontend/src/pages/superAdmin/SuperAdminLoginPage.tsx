@@ -7,8 +7,8 @@ export const SuperAdminLoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [email, setEmail] = useState('superadmin@switea.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,14 +18,14 @@ export const SuperAdminLoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const user = await login({ email, password });
+      const user = await login({ email: email.trim(), password });
       if (user.role !== 'SUPER_ADMIN') {
         setError('Access denied: You need Platform Super Administrator credentials.');
         return;
       }
       navigate('/super-admin/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Login failed.');
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,11 @@ export const SuperAdminLoginPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
+            {/* Hidden honeypots to stop browser password managers from prefilling */}
+            <input type="text" name="fake_user" style={{ display: 'none' }} tabIndex={-1} readOnly />
+            <input type="password" name="fake_password" style={{ display: 'none' }} tabIndex={-1} readOnly />
+
             <div>
               <label className="text-xs uppercase tracking-wider font-bold text-slate-400 block mb-1">
                 Admin Email
@@ -60,9 +64,10 @@ export const SuperAdminLoginPage: React.FC = () => {
                 <input
                   type="email"
                   required
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="superadmin@switea.com"
+                  placeholder="admin@asrockstudios.in"
                   className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -77,10 +82,11 @@ export const SuperAdminLoginPage: React.FC = () => {
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="••••••••••••"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                 />
               </div>
             </div>
@@ -100,10 +106,6 @@ export const SuperAdminLoginPage: React.FC = () => {
               )}
             </button>
           </form>
-
-          <div className="mt-6 pt-4 border-t border-slate-800 text-center">
-            <span className="text-xs text-slate-400">Default Super Admin credentials prefilled.</span>
-          </div>
         </div>
 
         <div className="mt-6 text-center">

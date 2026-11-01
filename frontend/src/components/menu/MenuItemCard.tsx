@@ -14,6 +14,7 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
 
   const cartEntry = items.find((i) => i.menuItemId === item.id);
   const hasCustomizations = (item.variants && item.variants.length > 0) || (item.modifierGroups && item.modifierGroups.length > 0);
+  const isCoffeeType = item.itemType === 'COFFEE' || item.category?.itemType === 'COFFEE';
 
   const handleAddClick = () => {
     if (hasCustomizations) {
@@ -23,6 +24,7 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
         menuItemId: item.id,
         name: item.name,
         price: item.price,
+        itemType: isCoffeeType ? 'COFFEE' : 'FOOD',
         image: item.image,
         isVeg: item.isVeg,
         quantity: 1,
@@ -32,19 +34,20 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-stone-200/80 shadow-soft overflow-hidden flex flex-col hover:shadow-card transition-all duration-300 group">
-        {/* Item Image with Badges */}
-        <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
+      <div className="parallax-card bg-white rounded-2xl border border-stone-200/80 shadow-soft overflow-hidden flex flex-col transition-all duration-200 group relative">
+        {/* Item Image with Parallax Scroll Effect */}
+        <div className="parallax-img-box relative aspect-[4/3] bg-stone-100 overflow-hidden">
+          <div className="scroll-glare absolute inset-0 pointer-events-none z-10 transition-opacity duration-200" />
           {item.image ? (
             <img
               src={item.image}
               alt={item.name}
               loading="lazy"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className="parallax-img w-full h-full object-cover will-change-transform"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-cream-200 text-stone-400 font-serif text-sm">
-              Switea Nature Cafe
+            <div className="w-full h-full flex items-center justify-center bg-cream-200 text-stone-500 font-serif text-sm">
+              RoastFuze Coffee Bar
             </div>
           )}
 
@@ -56,8 +59,8 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
               </span>
             )}
             {item.isSpecial && (
-              <span className="bg-nature-900/90 text-nature-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 backdrop-blur-sm">
-                <Flame className="w-3 h-3 text-terracotta-500" /> Chef's Special
+              <span className="bg-stone-900/90 text-amber-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 backdrop-blur-sm">
+                <Flame className="w-3 h-3 text-amber-400" /> Chef's Special
               </span>
             )}
           </div>
@@ -99,7 +102,14 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
 
           <div className="pt-2 border-t border-stone-100 flex items-center justify-between mt-auto">
             <div>
-              <span className="text-base font-extrabold text-nature-950">₹{item.price}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-extrabold text-nature-950">₹{item.price}</span>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  isCoffeeType ? 'bg-amber-100/80 text-amber-900 border border-amber-200' : 'bg-emerald-100/80 text-emerald-900 border border-emerald-200'
+                }`}>
+                  {isCoffeeType ? '☕ Coffee' : '🍔 Food'}
+                </span>
+              </div>
               {hasCustomizations && (
                 <span className="block text-[10px] text-stone-500 font-medium">Customizable</span>
               )}
@@ -147,6 +157,7 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
               menuItemId: item.id,
               name: item.name,
               price: item.price,
+              itemType: isCoffeeType ? 'COFFEE' : 'FOOD',
               image: item.image,
               isVeg: item.isVeg,
               ...payload,

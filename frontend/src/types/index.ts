@@ -4,6 +4,12 @@ export interface Restaurant {
   slug: string;
   description?: string;
   tagLine?: string;
+  themeTemplate?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  bgCream?: string;
+  photoLayout?: 'bento' | 'magazine' | 'cinematic' | 'split' | 'zen';
   logo?: string;
   coverImage?: string;
   address: string;
@@ -92,6 +98,7 @@ export interface MenuItem {
   slug: string;
   description?: string;
   price: number;
+  itemType?: 'FOOD' | 'COFFEE';
   isVeg: boolean;
   isBestseller: boolean;
   isSpecial: boolean;
@@ -99,7 +106,7 @@ export interface MenuItem {
   image?: string;
   prepTimeMinutes: number;
   displayOrder: number;
-  category?: { id: string; name: string };
+  category?: { id: string; name: string; itemType?: 'FOOD' | 'COFFEE' };
   variants?: ItemVariant[];
   modifierGroups?: ModifierGroup[];
 }
@@ -110,6 +117,7 @@ export interface MenuCategory {
   slug: string;
   description?: string;
   image?: string;
+  itemType?: 'FOOD' | 'COFFEE';
   displayOrder: number;
   isActive: boolean;
   items?: MenuItem[];
@@ -130,6 +138,9 @@ export interface Table {
   };
   qrUrl?: string;
   qrDataUrl?: string;
+  isOccupied?: boolean;
+  status?: 'AVAILABLE' | 'OCCUPIED';
+  activeOrders?: any[];
   _count?: { orders: number };
 }
 
@@ -137,6 +148,7 @@ export interface CartItem {
   menuItemId: string;
   name: string;
   price: number;
+  itemType?: 'FOOD' | 'COFFEE';
   image?: string;
   isVeg: boolean;
   variantId?: string;
@@ -149,6 +161,7 @@ export interface CartItem {
 export interface OrderItem {
   id: string;
   itemName: string;
+  itemType?: 'FOOD' | 'COFFEE';
   unitPrice: number;
   quantity: number;
   totalPrice: number;
@@ -161,11 +174,31 @@ export interface Order {
   orderNumber: string;
   orderToken: string;
   orderType: string;
+  source?: 'DIRECT' | 'SWIGGY' | 'ZOMATO' | string;
+  externalOrderId?: string | null;
+  riderName?: string | null;
+  riderPhone?: string | null;
+  riderVehicle?: string | null;
+  deliveryAddress?: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  deliveryEta?: number | null;
   customerName?: string;
   customerPhone?: string;
   notes?: string;
   subtotal: number;
   discountAmount: number;
+  foodPointsEarned?: number;
+  coffeePointsEarned?: number;
+  foodPointsRedeemed?: number;
+  coffeePointsRedeemed?: number;
+  loyaltyDiscount?: number;
+  customerLoyalty?: {
+    foodPoints: number;
+    coffeePoints: number;
+    lifetimeFoodPoints: number;
+    lifetimeCoffeePoints: number;
+  } | null;
   taxAmount: number;
   totalAmount: number;
   status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY' | 'SERVED' | 'CANCELLED';
@@ -174,8 +207,53 @@ export interface Order {
   rejectionReason?: string;
   estimatedPrepTime?: number;
   createdAt: string;
-  table?: { tableNumber: string; name: string; section?: string };
+  table?: { id?: string; tableNumber: string; name: string; section?: string; token?: string | null };
   items?: OrderItem[];
+  whatsappLink?: string | null;
+}
+
+export interface CustomerLoyalty {
+  id?: string;
+  customerPhone: string;
+  customerName?: string | null;
+  foodPoints: number;
+  coffeePoints: number;
+  lifetimeFoodPoints: number;
+  lifetimeCoffeePoints: number;
+  transactions?: LoyaltyTransaction[];
+}
+
+export interface LoyaltyTransaction {
+  id: string;
+  pointsType: 'FOOD' | 'COFFEE';
+  points: number;
+  reason: string;
+  description?: string;
+  createdAt: string;
+  order?: { orderNumber: string; totalAmount: number; status: string };
+}
+
+export interface CartCalculation {
+  subtotal: number;
+  foodSubtotal: number;
+  coffeeSubtotal: number;
+  potentialFoodPoints: number;
+  potentialCoffeePoints: number;
+  availableFoodPoints: number;
+  availableCoffeePoints: number;
+  maxRedeemableFoodPoints: number;
+  maxRedeemableCoffeePoints: number;
+  foodPointsRedeemed: number;
+  coffeePointsRedeemed: number;
+  loyaltyDiscount: number;
+  discountAmount: number;
+  discount?: { code: string; amount: number; value: number; type: string } | null;
+  discountError?: string | null;
+  minOrderAmount?: number | null;
+  taxPercent: number;
+  taxAmount: number;
+  totalAmount: number;
+  items: any[];
 }
 
 export interface User {

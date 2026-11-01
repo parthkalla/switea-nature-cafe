@@ -14,7 +14,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('switea_token'));
+  const [token, setToken] = useState<string | null>(localStorage.getItem('roastfuze_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(userData);
         } catch (err) {
           console.error('Failed to authenticate session:', err);
-          localStorage.removeItem('switea_token');
+          localStorage.removeItem('roastfuze_token');
           setToken(null);
           setUser(null);
         }
@@ -37,14 +37,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (credentials: { email: string; password: string }) => {
     const res = await api.login(credentials);
-    localStorage.setItem('switea_token', res.token);
+    localStorage.setItem('roastfuze_token', res.token);
     setToken(res.token);
     setUser(res.user);
     return res.user;
   };
 
   const logout = () => {
-    localStorage.removeItem('switea_token');
+    localStorage.removeItem('roastfuze_token');
     setToken(null);
     setUser(null);
   };

@@ -43,5 +43,6 @@ pnpm-debug.log*
 Thumbs.db
 *.exe
 *.zip
+*.rar
 Switea_Release/
 Switea_Backup/
