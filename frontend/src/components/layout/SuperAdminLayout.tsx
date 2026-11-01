@@ -182,7 +182,7 @@ export const SuperAdminLayout: React.FC<{ children: React.ReactNode }> = ({ chil
       <div className="flex-1 flex flex-col min-w-0">
         <header className="hidden md:flex h-16 bg-white border-b border-stone-200 items-center justify-between px-6">
           <span className="font-semibold text-stone-800 text-sm">
-            RoastFuze Platform Super Administration
+            ASRock Studios Platform Super Administration
           </span>
           <div className="flex items-center gap-3">
             <span className="text-xs text-stone-500 font-mono">

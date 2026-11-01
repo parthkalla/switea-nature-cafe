@@ -647,12 +647,10 @@ export async function getPlatformAnalytics(req: Request, res: Response) {
 
 // In-memory or database configuration store
 let platformSettingsState = {
-  platformName: 'RoastFuze Restaurant Operating System',
-  supportEmail: 'support@roastfuze.com',
+  platformName: 'ASRock Studios Restaurant Operating System',
+  supportEmail: 'support@asrockstudios.in',
   defaultCurrency: 'INR',
   maintenanceMode: false,
-  razorpayActive: true,
-  razorpayMode: 'SANDBOX',
   allowNewRegistrations: true,
   defaultTrialDays: 14,
   analyticsRetentionDays: 90,
@@ -671,17 +669,22 @@ export async function updatePlatformSettings(req: Request, res: Response) {
     const updates = req.body;
     platformSettingsState = { ...platformSettingsState, ...updates };
 
-    await prisma.auditLog.create({
-      data: {
-        userId: req.user?.id,
-        action: 'SUPER_ADMIN_UPDATED_SETTINGS',
-        entityType: 'SystemSettings',
-        details: JSON.stringify(updates),
-      },
-    });
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: req.user?.id,
+          action: 'SUPER_ADMIN_UPDATED_SETTINGS',
+          entityType: 'SystemSettings',
+          details: JSON.stringify(updates).slice(0, 4000),
+        },
+      });
+    } catch (logErr) {
+      console.warn('Audit log write error:', logErr);
+    }
 
     return res.json({ success: true, settings: platformSettingsState });
   } catch (err: any) {
+    console.error('updatePlatformSettings error:', err);
     return res.status(500).json({ error: 'Failed to update platform settings.' });
   }
 }
