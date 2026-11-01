@@ -190,15 +190,6 @@ export const AdminLoginPage: React.FC = () => {
             </button>
           </form>
         </div>
-
-        <div className="mt-6 text-center">
-          <Link
-            to="/super-admin/login"
-            className="text-xs text-amber-400/80 hover:text-amber-300 underline font-medium"
-          >
-            Are you a platform administrator? Super Admin Login →
-          </Link>
-        </div>
       </div>
     </div>
   );

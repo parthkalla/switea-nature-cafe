@@ -175,6 +175,7 @@ export interface Order {
   orderToken: string;
   orderType: string;
   source?: 'DIRECT' | 'SWIGGY' | 'ZOMATO' | string;
+  isDemo?: boolean;
   externalOrderId?: string | null;
   riderName?: string | null;
   riderPhone?: string | null;

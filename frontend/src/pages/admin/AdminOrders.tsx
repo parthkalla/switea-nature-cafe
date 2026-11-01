@@ -35,7 +35,9 @@ export const AdminOrders: React.FC = () => {
   const fetchOrders = async () => {
     try {
       const res = await api.getAdminOrders(statusFilter, search);
-      setOrders(res.orders || []);
+      const raw = res.orders || [];
+      const unique = Array.from(new Map(raw.map((o: Order) => [o.id, o])).values()) as Order[];
+      setOrders(unique);
     } catch (err) {
       console.error('Failed to load orders:', err);
     } finally {
@@ -52,14 +54,19 @@ export const AdminOrders: React.FC = () => {
     socket.emit('join_restaurant', 'roastfuze');
 
     socket.on('new_order', (newOrder: Order) => {
-      setOrders((prev) => [newOrder, ...prev]);
+      setOrders((prev) => {
+        if (prev.some((o) => o.id === newOrder.id || (newOrder.orderNumber && o.orderNumber === newOrder.orderNumber))) {
+          return prev;
+        }
+        return [newOrder, ...prev];
+      });
       if (soundEnabled) {
         playAlertChime('order');
         triggerHaptic([200, 100, 200]);
 
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification(`🔔 New Order #${newOrder.orderNumber}!`, {
-            body: `${newOrder.table ? `${newOrder.table.tableNumber} (${newOrder.table.name})` : 'Takeaway'} • ₹${newOrder.totalAmount}`,
+            body: `${newOrder.table ? `${newOrder.table.tableNumber} (${newOrder.table.name})` : (newOrder.source || 'Takeaway')} • ₹${newOrder.totalAmount}`,
             icon: '/favicon.ico',
           });
         }
@@ -263,6 +270,11 @@ export const AdminOrders: React.FC = () => {
                         {ord.source && ord.source !== 'DIRECT' && (
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ord.source === 'SWIGGY' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800'}`}>
                             {ord.source}
+                          </span>
+                        )}
+                        {ord.isDemo && (
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-300 animate-pulse">
+                            DEMO / TEST
                           </span>
                         )}
                         <span className="text-xs font-bold text-nature-900 bg-nature-100 px-2.5 py-0.5 rounded-full">

@@ -106,8 +106,17 @@ export async function syncExtensionOrder(req: Request, res: Response) {
       discountAmount = 0,
       totalAmount = 0,
       notes,
+      isDemo = false,
       restaurantSlug = 'roastfuze'
     } = req.body;
+
+    const isDemoOrder = Boolean(
+      isDemo ||
+      String(externalOrderId || '').startsWith('TEST-') ||
+      String(notes || '').includes('[DEMO]') ||
+      String(customerName || '').includes('(Zomato Gold)') ||
+      String(customerName || '').includes('(Swiggy One)')
+    );
 
     const normSource = String(source || 'ZOMATO').toUpperCase();
     if (normSource !== 'SWIGGY' && normSource !== 'ZOMATO') {
@@ -164,6 +173,7 @@ export async function syncExtensionOrder(req: Request, res: Response) {
         restaurantId: restaurant.id,
         orderType: 'DELIVERY',
         source: normSource,
+        isDemo: isDemoOrder,
         externalOrderId: extId,
         externalStatus: riderStatus || 'ASSIGNED',
         externalPayload: JSON.stringify(req.body),

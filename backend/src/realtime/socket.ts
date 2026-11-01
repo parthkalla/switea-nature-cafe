@@ -132,18 +132,15 @@ export function getIO(): SocketIOServer | null {
 
 export function emitNewOrder(restaurantId: string, order: any) {
   if (io) {
-    io.to(`restaurant_${restaurantId}`).emit('new_order', order);
-    io.to('restaurant_roastfuze').emit('new_order', order);
-    io.emit('new_order', order);
+    const rooms = Array.from(new Set([`restaurant_${restaurantId}`, 'restaurant_roastfuze']));
+    io.to(rooms).emit('new_order', order);
   }
 }
 
 export function emitOrderStatusUpdated(restaurantId: string, orderToken: string, status: string, order: any) {
   if (io) {
-    io.to(`restaurant_${restaurantId}`).emit('order_status_updated', { orderToken, status, order });
-    io.to('restaurant_roastfuze').emit('order_status_updated', { orderToken, status, order });
-    io.emit('order_status_updated', { orderToken, status, order });
-    io.to(`order_${orderToken}`).emit('order_status_updated', { orderToken, status, order });
+    const rooms = Array.from(new Set([`restaurant_${restaurantId}`, 'restaurant_roastfuze', `order_${orderToken}`]));
+    io.to(rooms).emit('order_status_updated', { orderToken, status, order });
 
     // Also notify customer room if phone is available
     if (order.customerPhone) {

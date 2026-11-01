@@ -52,11 +52,12 @@ export async function getDashboardAnalytics(req: Request, res: Response) {
       prisma.order.findMany({
         where: {
           restaurantId,
+          isDemo: false,
           createdAt: { gte: startOfToday },
         },
       }),
       prisma.order.findMany({
-        where: { restaurantId },
+        where: { restaurantId, isDemo: false },
         select: {
           id: true,
           totalAmount: true,
@@ -97,7 +98,7 @@ export async function getDashboardAnalytics(req: Request, res: Response) {
     // Top selling items
     const topItemsRaw = await prisma.orderItem.groupBy({
       by: ['itemName'],
-      where: { order: { restaurantId, status: { not: 'CANCELLED' } } },
+      where: { order: { restaurantId, isDemo: false, status: { not: 'CANCELLED' } } },
       _sum: { quantity: true, totalPrice: true },
       orderBy: { _sum: { quantity: 'desc' } },
       take: 6,
@@ -152,7 +153,7 @@ export async function getDashboardAnalytics(req: Request, res: Response) {
         items: {
           include: {
             orderItems: {
-              where: { order: { status: { not: 'CANCELLED' } } },
+              where: { order: { isDemo: false, status: { not: 'CANCELLED' } } },
             },
           },
         },

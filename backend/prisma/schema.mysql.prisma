@@ -290,6 +290,7 @@ model Order {
   diningSessionId  String?
   orderType        String          @default("DINE_IN") // DINE_IN, TAKEAWAY, DELIVERY
   source           String          @default("DIRECT") // DIRECT, SWIGGY, ZOMATO
+  isDemo           Boolean         @default(false)
   externalOrderId  String?
   externalStatus   String?
   externalPayload  String?

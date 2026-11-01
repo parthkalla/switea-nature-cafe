@@ -44,6 +44,18 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  const cafeSlug = (user as any)?.memberships?.[0]?.restaurant?.slug || (user as any)?.restaurantSlug || 'roastfuze';
+  const liveWebsiteUrl = (() => {
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+      return '/';
+    }
+    if (hostname.endsWith('asrockstudios.in')) {
+      return `https://${cafeSlug}.asrockstudios.in/`;
+    }
+    return '/';
+  })();
+
   const handleLogout = () => {
     logout();
     navigate('/admin/login');
@@ -221,14 +233,15 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
               <LogOut className="w-4 h-4" />
             </button>
           </div>
-          <Link
-            to="/menu"
+          <a
+            href={liveWebsiteUrl === '/' ? '/menu' : `${liveWebsiteUrl}menu`}
             target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center justify-center gap-1.5 text-xs text-nature-300 hover:text-white bg-nature-900/80 py-2 rounded-lg transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span>Open Public Menu</span>
-          </Link>
+          </a>
         </div>
       </aside>
 
@@ -287,14 +300,15 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </div>
 
           <div className="flex items-center gap-4">
-            <Link
-              to="/"
+            <a
+              href={liveWebsiteUrl}
               target="_blank"
+              rel="noopener noreferrer"
               className="text-xs font-medium text-amber-900 hover:underline flex items-center gap-1"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Live Website</span>
-            </Link>
+            </a>
             <div className="h-4 w-px bg-stone-300" />
             <div className="text-right">
               <span className="text-xs text-stone-500 block leading-tight">Logged in as</span>
