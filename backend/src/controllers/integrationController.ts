@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../config/db';
-import { emitNewOrder, emitOrderStatusUpdate } from '../realtime/socket';
+import { emitNewOrder, emitOrderStatusUpdated } from '../realtime/socket';
 import { isValidMarketplaceWebhook, normaliseMarketplaceOrder, Marketplace } from '../services/marketplace';
 
 // In-memory queue for bi-directional command dispatch (KDS -> Extension -> Swiggy/Zomato)
@@ -302,7 +302,7 @@ export async function updateRiderStatus(req: Request, res: Response) {
       }
     });
 
-    emitOrderStatusUpdate(order.restaurantId, updated.id, updated.status, updated.externalStatus || undefined);
+    emitOrderStatusUpdated(order.restaurantId, updated.id, updated.status, updated.externalStatus || undefined);
     return res.json({ success: true, order: updated });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
