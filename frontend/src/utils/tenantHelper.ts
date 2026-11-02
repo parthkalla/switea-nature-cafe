@@ -65,7 +65,7 @@ export function getOnboardLinks(slug: string) {
     subdomainMenuUrl: `https://${cleanSlug}.asrockstudios.in`,
     directMenuUrl: `https://roastfuze.asrockstudios.in/menu/${cleanSlug}`,
     adminUrl: `https://${cleanSlug}.asrockstudios.in/admin/login`,
-    adminDirectUrl: `https://roastfuze.asrockstudios.in/admin/login`,
+    adminDirectUrl: `https://admin.asrockstudios.in/login`,
     isLocal: false,
   };
 }

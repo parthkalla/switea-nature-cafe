@@ -141,20 +141,14 @@ export const SuperAdminRestaurants: React.FC = () => {
 
       // Generate dynamic onboarding links based on current environment (localhost vs production)
       const links = getOnboardLinks(cleanSlug);
-      const currentPort = typeof window !== 'undefined' && window.location.port ? `:${window.location.port}` : ':5170';
-      const localSubdomain = `http://${cleanSlug}.localhost${currentPort}`;
-      const localDirect = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5170'}/menu/${cleanSlug}`;
-      const prodSubdomain = `https://${cleanSlug}.asrockstudios.in`;
 
       setOnboardSuccess({
         restaurantName: res.restaurant?.name || name,
         slug: cleanSlug,
         menuUrl: links.subdomainMenuUrl,
-        localSubdomain,
-        localDirect,
-        prodSubdomain,
+        directMenuUrl: links.directMenuUrl,
         adminUrl: links.adminUrl,
-        adminDirect: links.adminDirectUrl,
+        adminDirectUrl: links.adminDirectUrl,
         isLocal: links.isLocal,
         ownerEmail: ownerEmail.trim(),
         password: ownerPassword || 'CafeOwner@2026!',
@@ -872,95 +866,54 @@ export const SuperAdminRestaurants: React.FC = () => {
               </div>
 
               <div className="space-y-3 bg-stone-50 p-4 rounded-2xl border border-stone-200/80 text-xs">
-                {/* Localhost Test Links */}
+                {/* Primary Customer Menu Link */}
                 <div>
                   <span className="font-bold text-stone-800 block mb-1">
-                    ⚡ Localhost Subdomain Link (Instant Testing):
+                    {onboardSuccess.isLocal ? '⚡ Localhost Subdomain Menu (Instant Testing):' : '🚀 Live Customer Menu (Subdomain):'}
                   </span>
                   <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-stone-200 gap-2">
-                    <span className="font-mono text-indigo-700 truncate">{onboardSuccess.localSubdomain}</span>
+                    <span className="font-mono text-emerald-700 font-semibold truncate">{onboardSuccess.menuUrl}</span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <a
-                        href={onboardSuccess.localSubdomain}
+                        href={onboardSuccess.menuUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-sm"
                       >
                         <ExternalLink className="w-3 h-3" />
                         <span>Open</span>
                       </a>
                       <button
-                        onClick={() => copyToClipboard(onboardSuccess.localSubdomain, 'localSubdomain')}
-                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>{copiedKey === 'localSubdomain' ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Direct Backup Menu Link */}
-                <div>
-                  <span className="font-bold text-stone-800 block mb-1">🌐 Direct Route Backup Menu:</span>
-                  <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-stone-200 gap-2">
-                    <span className="font-mono text-stone-600 truncate">{onboardSuccess.localDirect}</span>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <a
-                        href={onboardSuccess.localDirect}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        <span>Open</span>
-                      </a>
-                      <button
-                        onClick={() => copyToClipboard(onboardSuccess.localDirect, 'localDirect')}
+                        onClick={() => copyToClipboard(onboardSuccess.menuUrl, 'menuUrl')}
                         className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
                       >
                         <Copy className="w-3 h-3" />
-                        <span>{copiedKey === 'localDirect' ? 'Copied' : 'Copy'}</span>
+                        <span>{copiedKey === 'menuUrl' ? 'Copied' : 'Copy'}</span>
                       </button>
                     </div>
-                  </div>
-                </div>
-
-                {/* Production Domain */}
-                <div>
-                  <span className="font-bold text-stone-800 block mb-1">🚀 Production Subdomain:</span>
-                  <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-stone-200 gap-2">
-                    <span className="font-mono text-stone-700 truncate">{onboardSuccess.prodSubdomain}</span>
-                    <button
-                      onClick={() => copyToClipboard(onboardSuccess.prodSubdomain, 'prodSubdomain')}
-                      className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer flex-shrink-0"
-                    >
-                      <Copy className="w-3 h-3" />
-                      <span>{copiedKey === 'prodSubdomain' ? 'Copied' : 'Copy'}</span>
-                    </button>
                   </div>
                 </div>
 
                 {/* Cafe Admin Portal Link */}
                 <div>
-                  <span className="font-bold text-stone-800 block mb-1">🔐 Cafe Staff Admin Portal:</span>
+                  <span className="font-bold text-stone-800 block mb-1">🔐 Cafe Staff & Owner Admin Portal:</span>
                   <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-stone-200 gap-2">
-                    <span className="font-mono text-indigo-700 truncate">
-                      {onboardSuccess.localSubdomain}/admin/login
+                    <span className="font-mono text-indigo-700 font-semibold truncate">
+                      {onboardSuccess.adminUrl}
                     </span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <a
-                        href={`${onboardSuccess.localSubdomain}/admin/login`}
+                        href={onboardSuccess.adminUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-sm"
                       >
                         <ExternalLink className="w-3 h-3" />
                         <span>Open</span>
                       </a>
                       <button
-                        onClick={() => copyToClipboard(`${onboardSuccess.localSubdomain}/admin/login`, 'adminUrl')}
-                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                        onClick={() => copyToClipboard(onboardSuccess.adminUrl, 'adminUrl')}
+                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
                       >
                         <Copy className="w-3 h-3" />
                         <span>{copiedKey === 'adminUrl' ? 'Copied' : 'Copy'}</span>
@@ -969,7 +922,37 @@ export const SuperAdminRestaurants: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Owner Credentials */}
+                {/* Direct Route Backup Menu Link */}
+                <div>
+                  <span className="font-bold text-stone-800 block mb-1">🌐 Direct Route Backup Menu (Instant Zero-DNS):</span>
+                  <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-stone-200 gap-2">
+                    <span className="font-mono text-stone-600 truncate">{onboardSuccess.directMenuUrl}</span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <a
+                        href={onboardSuccess.directMenuUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Open</span>
+                      </a>
+                      <button
+                        onClick={() => copyToClipboard(onboardSuccess.directMenuUrl, 'directMenuUrl')}
+                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>{copiedKey === 'directMenuUrl' ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    Direct route works instantly on any server without requiring DNS subdomain provisioning.
+                  </p>
+                </div>
+              </div>
+
+              {/* Owner Credentials */}
                 <div className="pt-2 border-t border-stone-200/80">
                   <span className="font-bold text-stone-800 block mb-1">👤 Owner Login Credentials:</span>
                   <div className="bg-white p-3 rounded-xl border border-stone-200 space-y-1.5 font-mono text-[11px]">
@@ -993,13 +976,12 @@ export const SuperAdminRestaurants: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
 
               {/* Share & Done Actions */}
               <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
                 <a
                   href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `Hello! Your cafe digital system is live on RoastFuze platform!\n\n🍽️ Customer Digital Menu: ${onboardSuccess.localSubdomain}\n🔐 Admin Login: ${onboardSuccess.localSubdomain}/admin/login\n\nLogin Email: ${onboardSuccess.ownerEmail}\nPassword: ${onboardSuccess.password}`
+                    `Hello! Your cafe digital system is live on ASRock Studios platform!\n\n🍽️ Customer Digital Menu: ${onboardSuccess.menuUrl}\n🔐 Admin Login: ${onboardSuccess.adminUrl}\n\nLogin Email: ${onboardSuccess.ownerEmail}\nPassword: ${onboardSuccess.password}`
                   )}`}
                   target="_blank"
                   rel="noreferrer"

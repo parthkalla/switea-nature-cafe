@@ -181,6 +181,7 @@ export async function createRestaurant(req: Request, res: Response) {
             aboutHighlight1: theme.aboutHighlights[0],
             aboutHighlight2: theme.aboutHighlights[1],
             aboutHighlight3: theme.aboutHighlights[2],
+            isPublished: true,
           },
         },
         subscriptions: plan
