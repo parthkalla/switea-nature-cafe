@@ -1,26 +1,37 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { UtensilsCrossed, ShoppingBag, Menu, X, Coffee, Music, Sparkles } from 'lucide-react';
+import { UtensilsCrossed, ShoppingBag, Menu, X, Sparkles } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useTenant } from '../../context/TenantContext';
 
 interface NavbarProps {
   restaurant?: any;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ restaurant }) => {
+export const Navbar: React.FC<NavbarProps> = ({ restaurant: propRestaurant }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { totalItemCount, tableInfo } = useCart();
+  const { restaurant: contextRestaurant } = useTenant();
+
+  const restaurant = propRestaurant || contextRestaurant;
   const isCustomCafe = restaurant && restaurant.slug && restaurant.slug !== 'roastfuze';
 
-  const navLinks = [
-    { label: 'Explore Menu', path: '/menu' },
-    { label: 'Musical Balcony', path: '/#experience' },
-    { label: 'Balcony Club & Events', path: '/community' },
-    { label: 'Our Spaces', path: '/#spaces' },
-    { label: 'Find Us', path: '/#location' },
-    { label: 'My Points', path: '/loyalty' },
-  ];
+  const navLinks = isCustomCafe
+    ? [
+        { label: 'Explore Menu', path: '/menu' },
+        { label: 'About Us', path: '/#about' },
+        { label: 'Find Us', path: '/#location' },
+        { label: 'My Points', path: '/loyalty' },
+      ]
+    : [
+        { label: 'Explore Menu', path: '/menu' },
+        { label: 'Musical Balcony', path: '/#experience' },
+        { label: 'Balcony Club & Events', path: '/community' },
+        { label: 'Our Spaces', path: '/#spaces' },
+        { label: 'Find Us', path: '/#location' },
+        { label: 'My Points', path: '/loyalty' },
+      ];
 
   const handleNavClick = (path: string) => {
     setIsOpen(false);
@@ -60,11 +71,11 @@ export const Navbar: React.FC<NavbarProps> = ({ restaurant }) => {
             {isCustomCafe ? (
               <>
                 <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center font-serif font-black text-lg text-white shadow-sm border border-black/10"
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center font-serif font-black text-lg text-white shadow-sm border border-black/10 overflow-hidden"
                   style={{ backgroundColor: restaurant.primaryColor || '#064e3b' }}
                 >
                   {restaurant.logo ? (
-                    <img src={restaurant.logo} alt={restaurant.name} className="h-8 w-auto object-contain" />
+                    <img src={restaurant.logo} alt={restaurant.name} className="h-full w-full object-cover" />
                   ) : (
                     <span>{restaurant.name?.charAt(0) || 'C'}</span>
                   )}
@@ -73,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({ restaurant }) => {
                   <span className="text-sm font-serif font-bold text-stone-900 block leading-tight">
                     {restaurant.name}
                   </span>
-                  <span className="text-[10px] text-stone-500 font-medium block truncate max-w-[200px]">
+                  <span className="text-[10px] text-stone-500 font-medium block truncate max-w-[220px]">
                     {restaurant.tagLine || `${restaurant.city || 'Jaipur'}, ${restaurant.state || 'Rajasthan'}`}
                   </span>
                 </div>

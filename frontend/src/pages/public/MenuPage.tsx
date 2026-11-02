@@ -116,7 +116,7 @@ export const MenuPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-cream-100 text-stone-800 flex flex-col selection:bg-nature-200 pb-24">
-      <Navbar />
+      <Navbar restaurant={restaurant} />
 
       {/* Table Session Header */}
       {tableInfo && (
@@ -305,7 +305,7 @@ export const MenuPage: React.FC = () => {
         hasBottomCart={totalItemCount > 0}
       />
 
-      <Footer />
+      <Footer restaurant={restaurant} />
     </div>
   );
 };

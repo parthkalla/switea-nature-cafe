@@ -6,6 +6,7 @@ import {
   toggleRestaurantStatus,
   deleteRestaurant,
   restoreRestaurant,
+  updateRestaurant,
   getAllUsers,
   resetUserPassword,
   getSubscriptionPlans,
@@ -30,6 +31,7 @@ router.post('/restaurants', createRestaurant);
 router.patch('/restaurants/:id/toggle-status', toggleRestaurantStatus);
 router.delete('/restaurants/:id', deleteRestaurant);
 router.post('/restaurants/:id/restore', restoreRestaurant);
+router.put('/restaurants/:id', updateRestaurant);
 router.get('/users', getAllUsers);
 router.put('/users/:userId/password', resetUserPassword);
 router.get('/plans', getSubscriptionPlans);

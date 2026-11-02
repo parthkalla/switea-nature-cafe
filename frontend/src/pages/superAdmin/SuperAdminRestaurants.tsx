@@ -55,7 +55,25 @@ export const SuperAdminRestaurants: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('Jaipur');
+  const [logo, setLogo] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingLogo(true);
+      const res = await api.uploadImage(file);
+      if (res.url) {
+        setLogo(res.url);
+      }
+    } catch (err: any) {
+      alert(`Logo upload failed: ${err.message || 'Server error'}`);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   // Directory filter tabs & Delete modal state
   const [directoryTab, setDirectoryTab] = useState<'active' | 'archived'>('active');
@@ -128,6 +146,7 @@ export const SuperAdminRestaurants: React.FC = () => {
         phone: phone.trim() || undefined,
         address: address.trim() || undefined,
         city: city.trim() || 'Jaipur',
+        logo: logo || undefined,
       });
 
       setShowAdd(false);
@@ -138,6 +157,7 @@ export const SuperAdminRestaurants: React.FC = () => {
       setOwnerName('');
       setPhone('');
       setAddress('');
+      setLogo('');
 
       // Generate dynamic onboarding links based on current environment (localhost vs production)
       const links = getOnboardLinks(cleanSlug);
@@ -499,6 +519,97 @@ export const SuperAdminRestaurants: React.FC = () => {
                     <div className="flex items-center justify-between mt-1 text-[10px] font-mono text-stone-500">
                       <span>Localhost: <strong className="text-indigo-600">http://{slug || 'cafe'}.localhost:5170</strong></span>
                       <span>Prod: <strong className="text-stone-700">https://{slug || 'cafe'}.asrockstudios.in</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cafe Logo & Brand Icon */}
+                <div className="space-y-3 pt-2 border-t border-stone-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-bold text-stone-800">
+                        Cafe Logo & Brand Icon *
+                      </label>
+                      <p className="text-[11px] text-stone-500">
+                        Choose a preset icon, upload a custom logo image, or enter an image URL
+                      </p>
+                    </div>
+                    {/* Live Preview */}
+                    <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200">
+                      <span className="text-[10px] font-bold text-stone-500">Preview:</span>
+                      <div
+                        className="w-8 h-8 rounded-xl flex items-center justify-center font-serif font-black text-white text-sm shadow-sm overflow-hidden"
+                        style={{ backgroundColor: THEME_PRESETS[selectedTheme]?.primaryColor || '#064e3b' }}
+                      >
+                        {logo ? (
+                          <img src={logo} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <span>{name ? name.charAt(0).toUpperCase() : 'C'}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preset Quick Select Icons */}
+                  <div>
+                    <span className="text-[11px] font-bold text-stone-700 block mb-1.5">
+                      Quick Preset Brand Icons:
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { label: '👑 Royal Heritage', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=200&q=80' },
+                        { label: '☕ Espresso Cafe', url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=200&q=80' },
+                        { label: '🍸 Lounge & Bar', url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=200&q=80' },
+                        { label: '🍕 Stone Pizzeria', url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=200&q=80' },
+                        { label: '🌿 Garden Nature', url: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=200&q=80' },
+                        { label: '🍰 Bakery & Treats', url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=200&q=80' },
+                        { label: '🌮 Bistro Street', url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=200&q=80' },
+                        { label: '🍔 Smokehouse', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=200&q=80' },
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          type="button"
+                          onClick={() => setLogo(item.url)}
+                          className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all ${
+                            logo === item.url
+                              ? 'border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-500'
+                              : 'border-stone-200 bg-white hover:border-stone-300'
+                          }`}
+                        >
+                          <img src={item.url} alt={item.label} className="w-6 h-6 rounded-lg object-cover" />
+                          <span className="text-[10px] font-semibold text-stone-700 truncate">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Upload or URL */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        Upload Custom Logo File
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        disabled={uploadingLogo}
+                        className="w-full text-xs text-stone-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                      />
+                      {uploadingLogo && <span className="text-[10px] text-indigo-600 font-semibold block mt-1">Uploading image...</span>}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        Or Enter Direct Logo Image URL
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://images.unsplash.com/..."
+                        value={logo}
+                        onChange={(e) => setLogo(e.target.value)}
+                        className="w-full px-3.5 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                      />
                     </div>
                   </div>
                 </div>

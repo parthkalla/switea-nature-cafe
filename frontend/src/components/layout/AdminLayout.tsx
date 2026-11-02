@@ -44,16 +44,22 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const cafeSlug = (user as any)?.memberships?.[0]?.restaurant?.slug || (user as any)?.restaurantSlug || 'roastfuze';
+  const cafe = (user as any)?.memberships?.[0]?.restaurant || (user as any)?.restaurant;
+  const cafeName = cafe?.name || 'Cafe Admin';
+  const cafeSlug = cafe?.slug || (user as any)?.restaurantSlug || 'roastfuze';
+  const cafeLogo = cafe?.logo;
+  const cafeColor = cafe?.primaryColor || '#92400e';
+  const cafeTagline = cafe?.tagLine || 'Cafe Staff & POS Management';
+
   const liveWebsiteUrl = (() => {
     const hostname = window.location.hostname.toLowerCase();
     if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-      return '/';
+      return `/menu/${cafeSlug}`;
     }
     if (hostname.endsWith('asrockstudios.in')) {
       return `https://${cafeSlug}.asrockstudios.in/`;
     }
-    return '/';
+    return `/menu/${cafeSlug}`;
   })();
 
   const handleLogout = () => {
@@ -186,12 +192,19 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       {/* Sidebar for Desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-nature-950 text-cream-200 border-r border-nature-900 flex-shrink-0">
         <div className="h-20 px-6 flex items-center gap-3 border-b border-nature-900">
-          <div className="w-10 h-10 rounded-full bg-amber-900 flex items-center justify-center font-bold text-white font-serif">
-            R
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-white font-serif overflow-hidden shadow-sm flex-shrink-0"
+            style={{ backgroundColor: cafeColor }}
+          >
+            {cafeLogo ? (
+              <img src={cafeLogo} alt={cafeName} className="h-full w-full object-cover" />
+            ) : (
+              <span>{cafeName.charAt(0)}</span>
+            )}
           </div>
-          <div>
-            <h1 className="font-serif text-lg font-bold text-white leading-tight">RoastFuze</h1>
-            <span className="text-xs text-amber-400 font-medium tracking-wide">Balcony Cafe Admin</span>
+          <div className="min-w-0">
+            <h1 className="font-serif text-base font-bold text-white leading-tight truncate">{cafeName}</h1>
+            <span className="text-[10px] text-amber-400 font-medium tracking-wide block truncate">{cafeTagline}</span>
           </div>
         </div>
 
@@ -220,7 +233,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         <div className="p-4 border-t border-nature-900 bg-nature-950/60">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-sm font-semibold text-white">{user?.name || 'RoastFuze Staff'}</p>
+              <p className="text-sm font-semibold text-white">{user?.name || `${cafeName} Staff`}</p>
               <span className="text-xs bg-nature-800 text-nature-300 px-2 py-0.5 rounded-full font-medium">
                 {user?.role || 'STAFF'}
               </span>
@@ -295,7 +308,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
               <Menu className="w-6 h-6" />
             </button>
             <span className="font-semibold text-stone-800 text-sm hidden sm:inline">
-              RoastFuze Coffee Bar Management
+              {cafeName} Management Console
             </span>
           </div>
 

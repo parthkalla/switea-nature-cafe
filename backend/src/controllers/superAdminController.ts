@@ -103,6 +103,7 @@ export async function createRestaurant(req: Request, res: Response) {
       city = 'Jaipur',
       planSlug = 'pro',
       themeTemplate = 'GARDEN_CAFE',
+      logo,
     } = req.body;
 
     if (!name || !slug || !ownerEmail) {
@@ -166,6 +167,7 @@ export async function createRestaurant(req: Request, res: Response) {
         email: ownerEmail,
         address: address || 'Jaipur, Rajasthan',
         city,
+        logo: logo || null,
         memberships: {
           create: {
             userId: owner.id,
@@ -393,6 +395,34 @@ export async function restoreRestaurant(req: Request, res: Response) {
   } catch (err: any) {
     console.error('restoreRestaurant error:', err);
     return res.status(500).json({ error: 'Failed to restore restaurant.' });
+  }
+}
+
+export async function updateRestaurant(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { name, tagLine, phone, email, address, city, logo, primaryColor, accentColor, isOpen } = req.body;
+
+    const updated = await prisma.restaurant.update({
+      where: { id },
+      data: {
+        ...(name ? { name } : {}),
+        ...(tagLine !== undefined ? { tagLine } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(email !== undefined ? { email } : {}),
+        ...(address !== undefined ? { address } : {}),
+        ...(city !== undefined ? { city } : {}),
+        ...(logo !== undefined ? { logo } : {}),
+        ...(primaryColor !== undefined ? { primaryColor } : {}),
+        ...(accentColor !== undefined ? { accentColor } : {}),
+        ...(isOpen !== undefined ? { isOpen } : {}),
+      },
+    });
+
+    return res.json({ success: true, restaurant: updated });
+  } catch (err: any) {
+    console.error('updateRestaurant error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update restaurant.' });
   }
 }
 

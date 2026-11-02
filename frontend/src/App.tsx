@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { TenantProvider } from './context/TenantContext';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 
 // Public Pages
@@ -78,8 +79,9 @@ export const App: React.FC = () => {
     <BrowserRouter>
       <ScrollToTop />
       <AuthProvider>
-        <CartProvider>
-          <Routes>
+        <TenantProvider>
+          <CartProvider>
+            <Routes>
             {/* Super Admin Domain Root Redirect */}
             {isSuperAdminDomain ? (
               <>
@@ -152,8 +154,9 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </CartProvider>
-      </AuthProvider>
-    </BrowserRouter>
+      </TenantProvider>
+    </AuthProvider>
+  </BrowserRouter>
   );
 };
 

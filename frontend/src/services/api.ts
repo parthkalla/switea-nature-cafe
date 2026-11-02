@@ -573,6 +573,16 @@ export const api = {
     return res.json();
   },
 
+  async updateSuperAdminRestaurant(id: string, data: any) {
+    const res = await fetch(`${API_BASE}/super-admin/restaurants/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update restaurant');
+    return res.json();
+  },
+
   async deleteRestaurant(id: string) {
     const res = await fetch(`${API_BASE}/super-admin/restaurants/${id}`, {
       method: 'DELETE',
