@@ -43,6 +43,10 @@ import {
   getCustomers,
   getCustomerLoyalty,
   adjustCustomerLoyalty,
+  getLoyaltySettings,
+  updateLoyaltySettings,
+  updateMenuItemLoyalty,
+  batchUpdateMenuItemLoyalty,
   getModifierGroups,
   createModifierGroup,
   deleteModifierGroup,
@@ -93,6 +97,7 @@ router.get('/items', getMenuItems);
 router.post('/items', createMenuItem);
 router.put('/items/:id', updateMenuItem);
 router.patch('/items/:id/availability', toggleItemAvailability);
+router.patch('/items/:id/loyalty', updateMenuItemLoyalty);
 router.delete('/items/:id', deleteMenuItem);
 
 // Tables & QR Codes
@@ -132,6 +137,9 @@ router.patch('/reviews/:id/approval', toggleReviewApproval);
 router.get('/customers', getCustomers);
 router.get('/customers/:phone/loyalty', getCustomerLoyalty);
 router.post('/customers/loyalty/adjust', adjustCustomerLoyalty);
+router.get('/loyalty/settings', getLoyaltySettings);
+router.put('/loyalty/settings', updateLoyaltySettings);
+router.post('/loyalty/batch-items', batchUpdateMenuItemLoyalty);
 
 // Modifiers
 router.get('/modifiers', getModifierGroups);

@@ -244,6 +244,12 @@ export async function updateRestaurantProfile(req: Request, res: Response) {
       themeTemplate,
       primaryColor,
       accentColor,
+      isLoyaltyEnabled,
+      loyaltyPerOrderPoints,
+      loyaltyFoodSpendPerPoint,
+      loyaltyCoffeeSpendPerPoint,
+      loyaltyPointValue,
+      loyaltyMinOrderAmount,
     } = req.body;
 
     const updated = await prisma.restaurant.update({
@@ -255,6 +261,12 @@ export async function updateRestaurantProfile(req: Request, res: Response) {
         themeTemplate: themeTemplate !== undefined ? String(themeTemplate).trim() : undefined,
         primaryColor: primaryColor !== undefined ? String(primaryColor).trim() : undefined,
         accentColor: accentColor !== undefined ? String(accentColor).trim() : undefined,
+        isLoyaltyEnabled: isLoyaltyEnabled !== undefined ? Boolean(isLoyaltyEnabled) : undefined,
+        loyaltyPerOrderPoints: loyaltyPerOrderPoints !== undefined ? Math.max(0, parseInt(String(loyaltyPerOrderPoints), 10) || 0) : undefined,
+        loyaltyFoodSpendPerPoint: loyaltyFoodSpendPerPoint !== undefined ? Math.max(0.1, parseFloat(String(loyaltyFoodSpendPerPoint)) || 10.0) : undefined,
+        loyaltyCoffeeSpendPerPoint: loyaltyCoffeeSpendPerPoint !== undefined ? Math.max(0.1, parseFloat(String(loyaltyCoffeeSpendPerPoint)) || 10.0) : undefined,
+        loyaltyPointValue: loyaltyPointValue !== undefined ? Math.max(0.01, parseFloat(String(loyaltyPointValue)) || 1.0) : undefined,
+        loyaltyMinOrderAmount: loyaltyMinOrderAmount !== undefined ? Math.max(0, parseFloat(String(loyaltyMinOrderAmount)) || 0) : undefined,
         logo,
         coverImage,
         address,
@@ -585,7 +597,7 @@ export async function getMenuItems(req: Request, res: Response) {
       where: { restaurantId },
       orderBy: { displayOrder: 'asc' },
       include: {
-        category: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true, itemType: true } },
         variants: true,
         modifierGroups: {
           include: { options: true },
@@ -613,6 +625,7 @@ export async function createMenuItem(req: Request, res: Response) {
       isAvailable = true,
       image,
       prepTimeMinutes = 15,
+      loyaltyPoints = 0,
       variants,
       modifierGroups,
     } = req.body;
@@ -634,6 +647,7 @@ export async function createMenuItem(req: Request, res: Response) {
         isAvailable: Boolean(isAvailable),
         image,
         prepTimeMinutes: Number(prepTimeMinutes),
+        loyaltyPoints: loyaltyPoints !== undefined ? Math.max(0, parseInt(String(loyaltyPoints), 10) || 0) : 0,
         variants: variants && variants.length > 0 ? {
           create: variants.map((v: any) => ({
             name: v.name,
@@ -685,6 +699,7 @@ export async function updateMenuItem(req: Request, res: Response) {
       isAvailable,
       image,
       prepTimeMinutes,
+      loyaltyPoints,
     } = req.body;
 
     const updated = await prisma.menuItem.update({
@@ -701,6 +716,7 @@ export async function updateMenuItem(req: Request, res: Response) {
         isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : undefined,
         image,
         prepTimeMinutes: prepTimeMinutes !== undefined ? Number(prepTimeMinutes) : undefined,
+        loyaltyPoints: loyaltyPoints !== undefined ? Math.max(0, parseInt(String(loyaltyPoints), 10) || 0) : undefined,
       },
     });
 
@@ -1852,3 +1868,156 @@ export async function getAdminEventRsvps(req: Request, res: Response) {
   return res.json({ rsvps: getEventRsvps() });
 }
 
+
+// 14b. Loyalty Program Configuration & Item Rules
+export async function getLoyaltySettings(req: Request, res: Response) {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        id: true,
+        name: true,
+        currencySymbol: true,
+        isLoyaltyEnabled: true,
+        loyaltyPerOrderPoints: true,
+        loyaltyFoodSpendPerPoint: true,
+        loyaltyCoffeeSpendPerPoint: true,
+        loyaltyPointValue: true,
+        loyaltyMinOrderAmount: true,
+      },
+    });
+
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found.' });
+
+    const [memberCount, pointAggregations, itemsWithPointsCount] = await Promise.all([
+      prisma.customerLoyalty.count({ where: { restaurantId } }),
+      prisma.customerLoyalty.aggregate({
+        where: { restaurantId },
+        _sum: {
+          foodPoints: true,
+          coffeePoints: true,
+          lifetimeFoodPoints: true,
+          lifetimeCoffeePoints: true,
+        },
+      }),
+      prisma.menuItem.count({
+        where: {
+          restaurantId,
+          loyaltyPoints: { gt: 0 },
+        },
+      }),
+    ]);
+
+    return res.json({
+      settings: restaurant,
+      stats: {
+        totalMembers: memberCount,
+        activeFoodPoints: pointAggregations._sum.foodPoints || 0,
+        activeCoffeePoints: pointAggregations._sum.coffeePoints || 0,
+        lifetimeFoodPoints: pointAggregations._sum.lifetimeFoodPoints || 0,
+        lifetimeCoffeePoints: pointAggregations._sum.lifetimeCoffeePoints || 0,
+        itemsWithPointsCount,
+      },
+    });
+  } catch (err: any) {
+    console.error('getLoyaltySettings error:', err);
+    return res.status(500).json({ error: 'Failed to load loyalty settings.' });
+  }
+}
+
+export async function updateLoyaltySettings(req: Request, res: Response) {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const {
+      isLoyaltyEnabled,
+      loyaltyPerOrderPoints,
+      loyaltyFoodSpendPerPoint,
+      loyaltyCoffeeSpendPerPoint,
+      loyaltyPointValue,
+      loyaltyMinOrderAmount,
+    } = req.body;
+
+    const updated = await prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: {
+        isLoyaltyEnabled: isLoyaltyEnabled !== undefined ? Boolean(isLoyaltyEnabled) : undefined,
+        loyaltyPerOrderPoints: loyaltyPerOrderPoints !== undefined ? Math.max(0, parseInt(String(loyaltyPerOrderPoints), 10) || 0) : undefined,
+        loyaltyFoodSpendPerPoint: loyaltyFoodSpendPerPoint !== undefined ? Math.max(0.1, parseFloat(String(loyaltyFoodSpendPerPoint)) || 10.0) : undefined,
+        loyaltyCoffeeSpendPerPoint: loyaltyCoffeeSpendPerPoint !== undefined ? Math.max(0.1, parseFloat(String(loyaltyCoffeeSpendPerPoint)) || 10.0) : undefined,
+        loyaltyPointValue: loyaltyPointValue !== undefined ? Math.max(0.01, parseFloat(String(loyaltyPointValue)) || 1.0) : undefined,
+        loyaltyMinOrderAmount: loyaltyMinOrderAmount !== undefined ? Math.max(0, parseFloat(String(loyaltyMinOrderAmount)) || 0) : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        currencySymbol: true,
+        isLoyaltyEnabled: true,
+        loyaltyPerOrderPoints: true,
+        loyaltyFoodSpendPerPoint: true,
+        loyaltyCoffeeSpendPerPoint: true,
+        loyaltyPointValue: true,
+        loyaltyMinOrderAmount: true,
+      },
+    });
+
+    return res.json({ success: true, settings: updated });
+  } catch (err: any) {
+    console.error('updateLoyaltySettings error:', err);
+    return res.status(500).json({ error: 'Failed to update loyalty settings.' });
+  }
+}
+
+export async function updateMenuItemLoyalty(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { loyaltyPoints } = req.body;
+    const pts = Math.max(0, parseInt(String(loyaltyPoints), 10) || 0);
+
+    const updated = await prisma.menuItem.update({
+      where: { id },
+      data: { loyaltyPoints: pts },
+    });
+
+    return res.json({ success: true, item: updated });
+  } catch (err: any) {
+    console.error('updateMenuItemLoyalty error:', err);
+    return res.status(500).json({ error: 'Failed to update item loyalty points.' });
+  }
+}
+
+export async function batchUpdateMenuItemLoyalty(req: Request, res: Response) {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const { updates, categoryId, setAllPoints } = req.body as {
+      updates?: Array<{ id: string; loyaltyPoints: number }>;
+      categoryId?: string;
+      setAllPoints?: number;
+    };
+
+    if (Array.isArray(updates) && updates.length > 0) {
+      await Promise.all(
+        updates.map((u) =>
+          prisma.menuItem.updateMany({
+            where: { id: u.id, restaurantId },
+            data: { loyaltyPoints: Math.max(0, parseInt(String(u.loyaltyPoints), 10) || 0) },
+          })
+        )
+      );
+    } else if (setAllPoints !== undefined) {
+      const pts = Math.max(0, parseInt(String(setAllPoints), 10) || 0);
+      await prisma.menuItem.updateMany({
+        where: {
+          restaurantId,
+          ...(categoryId && categoryId !== 'ALL' ? { categoryId } : {}),
+        },
+        data: { loyaltyPoints: pts },
+      });
+    }
+
+    return res.json({ success: true, message: 'Loyalty points updated successfully.' });
+  } catch (err: any) {
+    console.error('batchUpdateMenuItemLoyalty error:', err);
+    return res.status(500).json({ error: 'Failed to batch update loyalty points.' });
+  }
+}

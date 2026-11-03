@@ -55,6 +55,12 @@ model Restaurant {
   timezone           String   @default("Asia/Kolkata")
   taxPercent         Float    @default(5.0)
   isOrderingEnabled  Boolean  @default(true)
+  isLoyaltyEnabled           Boolean  @default(true)
+  loyaltyPerOrderPoints      Int      @default(0)
+  loyaltyFoodSpendPerPoint   Float    @default(10.0)
+  loyaltyCoffeeSpendPerPoint Float    @default(10.0)
+  loyaltyPointValue          Float    @default(1.0)
+  loyaltyMinOrderAmount      Float    @default(0.0)
   isPayAtCounterOnly Boolean  @default(false)
   isOpen             Boolean  @default(true)
   isDeleted          Boolean  @default(false)
@@ -182,6 +188,7 @@ model MenuItem {
   isAvailable     Boolean        @default(true)
   image           String?
   prepTimeMinutes Int            @default(15)
+  loyaltyPoints   Int            @default(0)
   displayOrder    Int            @default(0)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

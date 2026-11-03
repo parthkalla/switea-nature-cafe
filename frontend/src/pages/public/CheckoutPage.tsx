@@ -21,6 +21,7 @@ import {
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
 import { useCart } from '../../context/CartContext';
+import { useTenant } from '../../context/TenantContext';
 import { api } from '../../services/api';
 import { CartCalculation } from '../../types';
 
@@ -40,6 +41,9 @@ export const CheckoutPage: React.FC = () => {
     subtotal,
   } = useCart();
 
+  const { restaurant: tenantRestaurant } = useTenant();
+  const cafeName = tenantRestaurant?.name || 'Cafe';
+  const pointValueRate = (tenantRestaurant as any)?.loyaltyPointValue || 1.0;
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -566,14 +570,14 @@ export const CheckoutPage: React.FC = () => {
                     <Gift className="w-4 h-4 text-amber-700" />
                   </div>
                   <div>
-                    <h2 className="font-serif font-bold text-base text-stone-900">RoastFuze Dual Loyalty Club</h2>
+                    <h2 className="font-serif font-bold text-base text-stone-900">{cafeName} Dual Loyalty Club</h2>
                     <p className="text-[11px] text-stone-500">
-                      Khane ke points alag 🍔 aur coffee ke points alag ☕
+                      Food points alag 🍔 aur coffee & beverage points alag ☕
                     </p>
                   </div>
                 </div>
                 <span className="text-[11px] bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded-full">
-                  1 Pt = ₹1
+                  1 Pt = ₹{pointValueRate}
                 </span>
               </div>
 

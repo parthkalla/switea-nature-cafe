@@ -497,6 +497,56 @@ export const api = {
     return data;
   },
 
+  async getLoyaltySettings() {
+    const res = await fetch(`${API_BASE}/admin/loyalty/settings`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Failed to load loyalty settings');
+    return res.json();
+  },
+
+  async updateLoyaltySettings(payload: {
+    isLoyaltyEnabled?: boolean;
+    loyaltyPerOrderPoints?: number;
+    loyaltyFoodSpendPerPoint?: number;
+    loyaltyCoffeeSpendPerPoint?: number;
+    loyaltyPointValue?: number;
+    loyaltyMinOrderAmount?: number;
+  }) {
+    const res = await fetch(`${API_BASE}/admin/loyalty/settings`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update loyalty settings');
+    return data;
+  },
+
+  async updateMenuItemLoyalty(id: string, loyaltyPoints: number) {
+    const res = await fetch(`${API_BASE}/admin/items/${id}/loyalty`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ loyaltyPoints }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update item loyalty points');
+    return data;
+  },
+
+  async batchUpdateMenuItemLoyalty(payload: {
+    updates?: Array<{ id: string; loyaltyPoints: number }>;
+    categoryId?: string;
+    setAllPoints?: number;
+  }) {
+    const res = await fetch(`${API_BASE}/admin/loyalty/batch-items`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to batch update loyalty points');
+    return data;
+  },
+
   async getAdminModifiers() {
     const res = await fetch(`${API_BASE}/admin/modifiers`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch modifiers');

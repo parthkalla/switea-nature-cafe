@@ -123,6 +123,12 @@ export async function getMenu(req: Request, res: Response) {
         currencySymbol: true,
         taxPercent: true,
         isOrderingEnabled: true,
+        isLoyaltyEnabled: true,
+        loyaltyPerOrderPoints: true,
+        loyaltyFoodSpendPerPoint: true,
+        loyaltyCoffeeSpendPerPoint: true,
+        loyaltyPointValue: true,
+        loyaltyMinOrderAmount: true,
         isPayAtCounterOnly: true,
         isOpen: true,
         isDeleted: true,
@@ -383,11 +389,15 @@ export async function getLoyaltyBalance(req: Request, res: Response) {
       coffeePoints: loyalty?.coffeePoints || 0,
       lifetimeFoodPoints: loyalty?.lifetimeFoodPoints || 0,
       lifetimeCoffeePoints: loyalty?.lifetimeCoffeePoints || 0,
-      foodPointsValue: (loyalty?.foodPoints || 0) * 1.0,
-      coffeePointsValue: (loyalty?.coffeePoints || 0) * 1.0,
+      foodPointsValue: (loyalty?.foodPoints || 0) * ((restaurant as any).loyaltyPointValue || 1.0),
+      coffeePointsValue: (loyalty?.coffeePoints || 0) * ((restaurant as any).loyaltyPointValue || 1.0),
       earnRate: {
-        food: '1 Food Point per ₹10 spent on Food',
-        coffee: '1 Coffee Point per ₹10 spent on Coffee',
+        food: `1 Food Point per ₹${(restaurant as any).loyaltyFoodSpendPerPoint || 10} spent on Food`,
+        coffee: `1 Coffee Point per ₹${(restaurant as any).loyaltyCoffeeSpendPerPoint || 10} spent on Coffee/Beverages`,
+        perOrderBonus: (restaurant as any).loyaltyPerOrderPoints || 0,
+        pointValue: (restaurant as any).loyaltyPointValue || 1.0,
+        minOrderAmount: (restaurant as any).loyaltyMinOrderAmount || 0,
+        isLoyaltyEnabled: (restaurant as any).isLoyaltyEnabled !== false,
       },
     });
   } catch (err: any) {
@@ -446,6 +456,10 @@ export async function calculateCart(req: Request, res: Response) {
     let subtotal = 0;
     let foodSubtotal = 0;
     let coffeeSubtotal = 0;
+    let itemSpecificFoodPoints = 0;
+    let itemSpecificCoffeePoints = 0;
+    let eligibleFoodSpend = 0;
+    let eligibleCoffeeSpend = 0;
     const validatedItems = [];
 
     for (const input of items) {
@@ -503,6 +517,22 @@ export async function calculateCart(req: Request, res: Response) {
         coffeeSubtotal += itemTotal;
       } else {
         foodSubtotal += itemTotal;
+      }
+
+      const itemCustomPoints = (item as any).loyaltyPoints || 0;
+      if (itemCustomPoints > 0) {
+        const itemAwarded = itemCustomPoints * quantity;
+        if (itemType === 'COFFEE') {
+          itemSpecificCoffeePoints += itemAwarded;
+        } else {
+          itemSpecificFoodPoints += itemAwarded;
+        }
+      } else {
+        if (itemType === 'COFFEE') {
+          eligibleCoffeeSpend += itemTotal;
+        } else {
+          eligibleFoodSpend += itemTotal;
+        }
       }
 
       validatedItems.push({
@@ -563,10 +593,27 @@ export async function calculateCart(req: Request, res: Response) {
     }
 
     // Dual Loyalty Points logic
-    // 1 Food Point earned per ₹10 spent on Food
-    // 1 Coffee Point earned per ₹10 spent on Coffee
-    const potentialFoodPoints = Math.floor(foodSubtotal / 10);
-    const potentialCoffeePoints = Math.floor(coffeeSubtotal / 10);
+    let potentialFoodPoints = 0;
+    let potentialCoffeePoints = 0;
+
+    const isLoyaltyActive = (restaurant as any).isLoyaltyEnabled !== false;
+    const foodSpendRate = (restaurant as any).loyaltyFoodSpendPerPoint || 10.0;
+    const coffeeSpendRate = (restaurant as any).loyaltyCoffeeSpendPerPoint || 10.0;
+    const pointValue = (restaurant as any).loyaltyPointValue || 1.0;
+    const minOrderAmt = (restaurant as any).loyaltyMinOrderAmount || 0;
+    const perOrderBonus = (restaurant as any).loyaltyPerOrderPoints || 0;
+
+    if (isLoyaltyActive) {
+      const spendFoodPoints = Math.floor(eligibleFoodSpend / foodSpendRate);
+      const spendCoffeePoints = Math.floor(eligibleCoffeeSpend / coffeeSpendRate);
+
+      potentialFoodPoints = itemSpecificFoodPoints + spendFoodPoints;
+      potentialCoffeePoints = itemSpecificCoffeePoints + spendCoffeePoints;
+
+      if (perOrderBonus > 0 && subtotal >= minOrderAmt) {
+        potentialFoodPoints += perOrderBonus;
+      }
+    }
 
     let availableFoodPoints = 0;
     let availableCoffeePoints = 0;
@@ -601,8 +648,8 @@ export async function calculateCart(req: Request, res: Response) {
       coffeePointsRedeemed = Math.min(Number(redeemCoffeePoints), maxRedeemableCoffeePoints);
     }
 
-    // 1 point = ₹1 discount
-    const loyaltyDiscount = foodPointsRedeemed + coffeePointsRedeemed;
+    // 1 point = ₹pointValue discount
+    const loyaltyDiscount = Number(((foodPointsRedeemed + coffeePointsRedeemed) * pointValue).toFixed(2));
 
     const totalDeductions = discountAmount + loyaltyDiscount;
     const discountedSubtotal = Math.max(0, subtotal - totalDeductions);
@@ -715,6 +762,10 @@ export async function createOrder(req: Request, res: Response) {
     let subtotal = 0;
     let foodSubtotal = 0;
     let coffeeSubtotal = 0;
+    let itemSpecificFoodPoints = 0;
+    let itemSpecificCoffeePoints = 0;
+    let eligibleFoodSpend = 0;
+    let eligibleCoffeeSpend = 0;
     const orderItemsData: any[] = [];
 
     for (const input of items) {
@@ -772,6 +823,22 @@ export async function createOrder(req: Request, res: Response) {
         coffeeSubtotal += totalPrice;
       } else {
         foodSubtotal += totalPrice;
+      }
+
+      const itemCustomPoints = (item as any).loyaltyPoints || 0;
+      if (itemCustomPoints > 0) {
+        const itemAwarded = itemCustomPoints * quantity;
+        if (itemType === 'COFFEE') {
+          itemSpecificCoffeePoints += itemAwarded;
+        } else {
+          itemSpecificFoodPoints += itemAwarded;
+        }
+      } else {
+        if (itemType === 'COFFEE') {
+          eligibleCoffeeSpend += totalPrice;
+        } else {
+          eligibleFoodSpend += totalPrice;
+        }
       }
 
       orderItemsData.push({
@@ -857,12 +924,30 @@ export async function createOrder(req: Request, res: Response) {
       }
     }
 
-    // 1 Point = ₹1 discount
-    const loyaltyDiscount = actualFoodRedeemed + actualCoffeeRedeemed;
+    const isLoyaltyActive = (restaurant as any).isLoyaltyEnabled !== false;
+    const foodSpendRate = (restaurant as any).loyaltyFoodSpendPerPoint || 10.0;
+    const coffeeSpendRate = (restaurant as any).loyaltyCoffeeSpendPerPoint || 10.0;
+    const pointValue = (restaurant as any).loyaltyPointValue || 1.0;
+    const minOrderAmt = (restaurant as any).loyaltyMinOrderAmount || 0;
+    const perOrderBonus = (restaurant as any).loyaltyPerOrderPoints || 0;
 
-    // Earn rates: 1 Food point per ₹10 on food, 1 Coffee point per ₹10 on coffee
-    const foodPointsEarned = Math.floor(foodSubtotal / 10);
-    const coffeePointsEarned = Math.floor(coffeeSubtotal / 10);
+    // Point = ₹pointValue discount
+    const loyaltyDiscount = Number(((actualFoodRedeemed + actualCoffeeRedeemed) * pointValue).toFixed(2));
+
+    let foodPointsEarned = 0;
+    let coffeePointsEarned = 0;
+
+    if (isLoyaltyActive) {
+      const spendFoodPoints = Math.floor(eligibleFoodSpend / foodSpendRate);
+      const spendCoffeePoints = Math.floor(eligibleCoffeeSpend / coffeeSpendRate);
+
+      foodPointsEarned = itemSpecificFoodPoints + spendFoodPoints;
+      coffeePointsEarned = itemSpecificCoffeePoints + spendCoffeePoints;
+
+      if (perOrderBonus > 0 && subtotal >= minOrderAmt) {
+        foodPointsEarned += perOrderBonus;
+      }
+    }
 
     const discountedSubtotal = Math.max(0, subtotal - discountAmount - loyaltyDiscount);
     const taxAmount = Number(((discountedSubtotal * restaurant.taxPercent) / 100).toFixed(2));

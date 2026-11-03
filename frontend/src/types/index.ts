@@ -28,6 +28,12 @@ export interface Restaurant {
   isOrderingEnabled: boolean;
   isPayAtCounterOnly: boolean;
   isOpen: boolean;
+  isLoyaltyEnabled?: boolean;
+  loyaltyPerOrderPoints?: number;
+  loyaltyFoodSpendPerPoint?: number;
+  loyaltyCoffeeSpendPerPoint?: number;
+  loyaltyPointValue?: number;
+  loyaltyMinOrderAmount?: number;
 }
 
 export interface LandingPageContent {
@@ -105,6 +111,7 @@ export interface MenuItem {
   isAvailable: boolean;
   image?: string;
   prepTimeMinutes: number;
+  loyaltyPoints?: number;
   displayOrder: number;
   category?: { id: string; name: string; itemType?: 'FOOD' | 'COFFEE' };
   variants?: ItemVariant[];

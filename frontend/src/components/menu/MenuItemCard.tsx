@@ -46,8 +46,8 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
               className="parallax-img w-full h-full object-cover will-change-transform"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-cream-200 text-stone-500 font-serif text-sm">
-              RoastFuze Coffee Bar
+            <div className="w-full h-full flex items-center justify-center bg-cream-200 text-stone-500 font-serif text-sm font-bold p-3 text-center">
+              {item.name}
             </div>
           )}
 
@@ -63,6 +63,11 @@ export const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
                 <Flame className="w-3 h-3 text-amber-400" /> Chef's Special
               </span>
             )}
+            {item.loyaltyPoints && item.loyaltyPoints > 0 ? (
+              <span className="bg-purple-600/95 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 backdrop-blur-sm">
+                🎁 +{item.loyaltyPoints} Pts
+              </span>
+            ) : null}
           </div>
 
           {/* Availability overlay if paused */}
