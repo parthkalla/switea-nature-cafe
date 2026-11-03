@@ -30,7 +30,11 @@ function getDynamicFrontendUrl(req: Request): string {
 
 // Helper to get authorized restaurant ID
 function getRestaurantId(req: Request): string {
-  return (req.user?.restaurantId || req.query.restaurantId || req.params.restaurantId || '281f2b53-a69a-4bb3-a390-b28b9053ef7e') as string;
+  if (req.user?.role === 'SUPER_ADMIN') {
+    if (req.headers['x-restaurant-id']) return req.headers['x-restaurant-id'] as string;
+    if (req.query.restaurantId) return req.query.restaurantId as string;
+  }
+  return (req.user?.restaurantId || (req.headers['x-restaurant-id'] as string) || req.query.restaurantId || req.params.restaurantId || '8b16826a-4c98-4c5c-b0d0-b7e9de0c859f') as string;
 }
 
 // 1. Dashboard Analytics

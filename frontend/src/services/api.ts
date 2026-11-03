@@ -1,3 +1,5 @@
+import { getTenantSlug } from '../utils/tenantHelper';
+
 const getApiBase = () => {
   if (typeof window === 'undefined') return '/api';
   const h = window.location.hostname.toLowerCase();
@@ -17,11 +19,17 @@ const API_BASE = getApiBase();
 
 function getHeaders(): HeadersInit {
   const token = localStorage.getItem('roastfuze_token');
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (typeof window !== 'undefined') {
+    const slug = getTenantSlug();
+    if (slug) {
+      headers['X-Restaurant-Slug'] = slug;
+    }
   }
   return headers;
 }

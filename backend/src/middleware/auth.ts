@@ -53,13 +53,65 @@ export async function authenticateJWT(req: Request, res: Response, next: NextFun
       return res.status(401).json({ error: 'User account is inactive or not found.' });
     }
 
-    const defaultMembership = user.memberships[0];
+    let targetRestaurantId: string | undefined = undefined;
+
+    // Check if client explicitly requested a specific restaurant (via header or query)
+    const headerRestId = (req.headers['x-restaurant-id'] || req.query.restaurantId) as string;
+    const headerSlug = ((req.headers['x-restaurant-slug'] || req.query.slug) as string)?.toLowerCase().trim();
+
+    // Check host subdomain (e.g. damroo.asrockstudios.in or damroo.localhost)
+    const host = ((req.headers['x-forwarded-host'] || req.headers.host || '') as string).toLowerCase().split(':')[0];
+    let hostSlug = '';
+    if (host.endsWith('.asrockstudios.in')) {
+      const sub = host.replace('.asrockstudios.in', '');
+      if (sub && sub !== 'admin' && sub !== 'www') hostSlug = sub;
+    } else if (host.endsWith('.localhost')) {
+      const sub = host.replace('.localhost', '');
+      if (sub && sub !== 'admin' && sub !== 'www') hostSlug = sub;
+    }
+
+    const effectiveSlug = headerSlug && headerSlug !== 'all' ? headerSlug : hostSlug;
+
+    if (user.role === 'SUPER_ADMIN') {
+      if (headerRestId) {
+        targetRestaurantId = headerRestId;
+      } else if (effectiveSlug) {
+        const found = await prisma.restaurant.findUnique({
+          where: { slug: effectiveSlug },
+          select: { id: true },
+        });
+        if (found) targetRestaurantId = found.id;
+      }
+    } else if (effectiveSlug) {
+      // Find if user has membership in the requested restaurant
+      const userMatched = await prisma.restaurant.findUnique({
+        where: { slug: effectiveSlug },
+        select: { id: true },
+      });
+      if (userMatched && user.memberships.some(m => m.restaurantId === userMatched.id)) {
+        targetRestaurantId = userMatched.id;
+      }
+    }
+
+    if (!targetRestaurantId) {
+      targetRestaurantId = user.memberships[0]?.restaurantId;
+    }
+
+    if (!targetRestaurantId) {
+      const fallbackRest = await prisma.restaurant.findFirst({
+        where: { isDeleted: false },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      targetRestaurantId = fallbackRest?.id || '8b16826a-4c98-4c5c-b0d0-b7e9de0c859f';
+    }
+
     req.user = {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      restaurantId: defaultMembership?.restaurantId || '281f2b53-a69a-4bb3-a390-b28b9053ef7e',
+      restaurantId: targetRestaurantId,
     };
     next();
   } catch (err) {
