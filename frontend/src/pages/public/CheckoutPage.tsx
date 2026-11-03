@@ -41,7 +41,8 @@ export const CheckoutPage: React.FC = () => {
     subtotal,
   } = useCart();
 
-  const { restaurant: tenantRestaurant } = useTenant();
+  const { restaurant: tenantRestaurant, slug: tenantSlug } = useTenant();
+  const effectiveSlug = tenantSlug || tenantRestaurant?.slug || 'roastfuze';
   const cafeName = tenantRestaurant?.name || 'Cafe';
   const pointValueRate = (tenantRestaurant as any)?.loyaltyPointValue || 1.0;
   const [customerName, setCustomerName] = useState('');
@@ -91,6 +92,7 @@ export const CheckoutPage: React.FC = () => {
   const [useFoodPoints, setUseFoodPoints] = useState(false);
   const [useCoffeePoints, setUseCoffeePoints] = useState(false);
   const [calculation, setCalculation] = useState<CartCalculation | null>(null);
+  const minRedeemPoints = (tenantRestaurant as any)?.loyaltyMinRedeemPoints || (calculation as any)?.minRedeemPoints || 0;
   const [loadingCalculation, setLoadingCalculation] = useState(false);
 
   // Recalculate bill whenever items, coupon, phone, or redemption preferences change
@@ -102,7 +104,7 @@ export const CheckoutPage: React.FC = () => {
       try {
         setLoadingCalculation(true);
         const res = await api.calculateCart({
-          restaurantSlug: 'roastfuze',
+          restaurantSlug: effectiveSlug,
           items: items.map((i) => ({
             menuItemId: i.menuItemId,
             variantId: i.variantId,
@@ -191,7 +193,7 @@ export const CheckoutPage: React.FC = () => {
       }
 
       const res = await api.createOrder({
-        restaurantSlug: 'roastfuze',
+        restaurantSlug: effectiveSlug,
         tableToken: orderType === 'DINE_IN' ? tableToken : undefined,
         orderType,
         customerName: customerName.trim() || undefined,
@@ -609,9 +611,35 @@ export const CheckoutPage: React.FC = () => {
               {/* Redemption Section if Customer has phone entered */}
               {customerPhone.trim() ? (
                 <div className="space-y-3 pt-2">
-                  <span className="text-xs font-bold text-stone-700 block uppercase tracking-wider">
-                    Redeem Your Balance
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-700 block uppercase tracking-wider">
+                      Redeem Your Balance
+                    </span>
+                    {minRedeemPoints > 0 && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        (availableFood + availableCoffee) >= minRedeemPoints
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-100 text-amber-900 border border-amber-200'
+                      }`}>
+                        {(availableFood + availableCoffee) >= minRedeemPoints
+                          ? `✓ Min. ${minRedeemPoints} pts unlocked`
+                          : `Min. ${minRedeemPoints} pts required`}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Warning banner if wallet points < minRedeemPoints */}
+                  {minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 flex items-start gap-2.5">
+                      <span className="text-base flex-shrink-0">🔒</span>
+                      <div>
+                        <p className="font-bold">Minimum {minRedeemPoints} points required to redeem</p>
+                        <p className="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+                          You currently have <strong>{availableFood + availableCoffee} points</strong> in your wallet. Earn {minRedeemPoints - (availableFood + availableCoffee)} more points to unlock checkout discounts.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Food Points Redemption */}
                   <div className={`p-4 rounded-2xl border transition-all ${
@@ -623,7 +651,11 @@ export const CheckoutPage: React.FC = () => {
                           type="checkbox"
                           id="redeemFoodCheck"
                           checked={useFoodPoints}
-                          disabled={availableFood === 0 || foodSubtotal === 0}
+                          disabled={
+                            (minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints) ||
+                            availableFood === 0 ||
+                            foodSubtotal === 0
+                          }
                           onChange={(e) => setUseFoodPoints(e.target.checked)}
                           className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-40"
                         />
@@ -632,18 +664,20 @@ export const CheckoutPage: React.FC = () => {
                             🍔 Redeem Food Points (Balance: {availableFood} Pts)
                           </span>
                           <span className="text-stone-500 text-[11px] block">
-                            {foodSubtotal === 0
+                            {minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints
+                              ? `Locked: Need ${minRedeemPoints} total wallet points to redeem`
+                              : foodSubtotal === 0
                               ? 'No food items in cart to apply food points to'
                               : availableFood > 0
-                              ? `Save up to ₹${Math.min(availableFood, Math.floor(foodSubtotal))} off food items`
+                              ? `Save up to ₹${(Math.min(availableFood, Math.floor(foodSubtotal)) * pointValueRate).toFixed(0)} off food items`
                               : 'No food points available yet'}
                           </span>
                         </label>
                       </div>
 
-                      {useFoodPoints && calculation && (
+                      {useFoodPoints && calculation && calculation.foodPointsRedeemed > 0 && (
                         <span className="text-xs font-extrabold text-emerald-800 whitespace-nowrap bg-emerald-100 px-2.5 py-1 rounded-lg">
-                          -₹{calculation.foodPointsRedeemed}
+                          -₹{(calculation.foodPointsRedeemed * pointValueRate).toFixed(2)}
                         </span>
                       )}
                     </div>
@@ -659,7 +693,11 @@ export const CheckoutPage: React.FC = () => {
                           type="checkbox"
                           id="redeemCoffeeCheck"
                           checked={useCoffeePoints}
-                          disabled={availableCoffee === 0 || coffeeSubtotal === 0}
+                          disabled={
+                            (minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints) ||
+                            availableCoffee === 0 ||
+                            coffeeSubtotal === 0
+                          }
                           onChange={(e) => setUseCoffeePoints(e.target.checked)}
                           className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer disabled:opacity-40"
                         />
@@ -668,18 +706,20 @@ export const CheckoutPage: React.FC = () => {
                             ☕ Redeem Coffee Points (Balance: {availableCoffee} Pts)
                           </span>
                           <span className="text-stone-500 text-[11px] block">
-                            {coffeeSubtotal === 0
+                            {minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints
+                              ? `Locked: Need ${minRedeemPoints} total wallet points to redeem`
+                              : coffeeSubtotal === 0
                               ? 'No coffee/beverage items in cart to apply coffee points to'
                               : availableCoffee > 0
-                              ? `Save up to ₹${Math.min(availableCoffee, Math.floor(coffeeSubtotal))} off coffee items`
+                              ? `Save up to ₹${(Math.min(availableCoffee, Math.floor(coffeeSubtotal)) * pointValueRate).toFixed(0)} off coffee items`
                               : 'No coffee points available yet'}
                           </span>
                         </label>
                       </div>
 
-                      {useCoffeePoints && calculation && (
+                      {useCoffeePoints && calculation && calculation.coffeePointsRedeemed > 0 && (
                         <span className="text-xs font-extrabold text-amber-800 whitespace-nowrap bg-amber-100 px-2.5 py-1 rounded-lg">
-                          -₹{calculation.coffeePointsRedeemed}
+                          -₹{(calculation.coffeePointsRedeemed * pointValueRate).toFixed(2)}
                         </span>
                       )}
                     </div>

@@ -36,6 +36,7 @@ export const AdminLoyalty: React.FC = () => {
   const [loyaltyCoffeeSpendPerPoint, setLoyaltyCoffeeSpendPerPoint] = useState<number | string>(10);
   const [loyaltyPointValue, setLoyaltyPointValue] = useState<number | string>(1.0);
   const [loyaltyMinOrderAmount, setLoyaltyMinOrderAmount] = useState<number | string>(0);
+  const [loyaltyMinRedeemPoints, setLoyaltyMinRedeemPoints] = useState<number | string>(0);
 
   // Stats State
   const [stats, setStats] = useState({
@@ -81,6 +82,7 @@ export const AdminLoyalty: React.FC = () => {
         setLoyaltyCoffeeSpendPerPoint(s.loyaltyCoffeeSpendPerPoint || 10);
         setLoyaltyPointValue(s.loyaltyPointValue || 1.0);
         setLoyaltyMinOrderAmount(s.loyaltyMinOrderAmount || 0);
+        setLoyaltyMinRedeemPoints(s.loyaltyMinRedeemPoints || 0);
       }
 
       if (settingsRes.stats) {
@@ -121,6 +123,7 @@ export const AdminLoyalty: React.FC = () => {
         loyaltyCoffeeSpendPerPoint: Number(loyaltyCoffeeSpendPerPoint),
         loyaltyPointValue: Number(loyaltyPointValue),
         loyaltyMinOrderAmount: Number(loyaltyMinOrderAmount),
+        loyaltyMinRedeemPoints: Number(loyaltyMinRedeemPoints),
       });
       setSaveSuccessMsg('Global loyalty program settings saved successfully!');
       setTimeout(() => setSaveSuccessMsg(null), 4000);
@@ -461,20 +464,20 @@ export const AdminLoyalty: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
             {/* 4. Point Redemption Conversion Rate */}
             <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-stone-800 flex items-center gap-1.5 uppercase tracking-wider">
                   <Coins className="w-4 h-4 text-amber-600" />
-                  <span>Point Redemption Value (₹ in Checkout)</span>
+                  <span>Point Value (₹ / Point)</span>
                 </label>
                 <span className="text-[11px] font-bold bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full">
                   Redemption
                 </span>
               </div>
               <p className="text-[11px] text-stone-500">
-                Rupee discount value of 1 point when customer clicks Redeem at checkout (e.g. 1 point = ₹1.00).
+                Rupee discount value of 1 point when customer redeems at checkout (e.g. 1 pt = ₹1.00).
               </p>
               <div className="relative pt-1">
                 <input
@@ -499,14 +502,14 @@ export const AdminLoyalty: React.FC = () => {
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-stone-800 flex items-center gap-1.5 uppercase tracking-wider">
                   <DollarSign className="w-4 h-4 text-emerald-600" />
-                  <span>Minimum Cart Value to Earn Points</span>
+                  <span>Min. Cart Value to Earn</span>
                 </label>
                 <span className="text-[11px] font-bold bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full">
                   Eligibility
                 </span>
               </div>
               <p className="text-[11px] text-stone-500">
-                Minimum order amount required before loyalty points are rewarded (Leave ₹0 to reward on all orders).
+                Minimum order amount required before points are rewarded (Leave ₹0 for all orders).
               </p>
               <div className="relative pt-1">
                 <input
@@ -525,18 +528,59 @@ export const AdminLoyalty: React.FC = () => {
                 <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">INR ₹ min</span>
               </div>
             </div>
+
+            {/* 6. Min Wallet Points to Redeem */}
+            <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/80 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-purple-950 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Award className="w-4 h-4 text-purple-700" />
+                  <span>Min. Points to Redeem</span>
+                </label>
+                <span className="text-[11px] font-bold bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full">
+                  Wallet Min.
+                </span>
+              </div>
+              <p className="text-[11px] text-purple-900/80">
+                Minimum points user must have in wallet to redeem at checkout (Leave 0 for any balance).
+              </p>
+              <div className="relative pt-1">
+                <input
+                  type="number"
+                  min={0}
+                  step={5}
+                  value={loyaltyMinRedeemPoints}
+                  onChange={(e) => setLoyaltyMinRedeemPoints(e.target.value)}
+                  onBlur={() => {
+                    if (loyaltyMinRedeemPoints === '' || isNaN(Number(loyaltyMinRedeemPoints))) {
+                      setLoyaltyMinRedeemPoints(0);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-purple-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
+                />
+                <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">pts in wallet</span>
+              </div>
+            </div>
           </div>
 
           {/* Visual Formula Explainer Card */}
           <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/70 via-stone-50 to-emerald-50/70 border border-amber-200/60 flex items-start gap-3">
             <Info className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-stone-700 space-y-1">
+            <div className="text-xs text-stone-700 space-y-1.5">
               <p className="font-semibold text-stone-900">
-                How Loyalty Points are Awarded to Customers:
+                How Loyalty Points are Awarded & Redeemed:
               </p>
               <p className="text-stone-600 leading-relaxed">
                 When a customer orders: Items with <strong className="text-purple-800">individual points</strong> award that exact amount per unit. All other items earn <strong className="text-emerald-800">1 Food Point per ₹{loyaltyFoodSpendPerPoint}</strong> and <strong className="text-amber-800">1 Coffee Point per ₹{loyaltyCoffeeSpendPerPoint}</strong>. Plus, orders qualifying for min ₹{loyaltyMinOrderAmount} receive <strong className="text-amber-800">+{loyaltyPerOrderPoints} bonus points</strong> automatically!
               </p>
+              {Number(loyaltyMinRedeemPoints) > 0 ? (
+                <p className="text-purple-900 font-medium">
+                  🔒 <strong>Redemption Rule:</strong> Customers must hold a minimum balance of <strong>{loyaltyMinRedeemPoints} points</strong> in their wallet before redeeming points on any order.
+                </p>
+              ) : (
+                <p className="text-stone-500 font-normal">
+                  🔓 <strong>Redemption Rule:</strong> Customers can redeem any amount of available points without minimum balance restrictions.
+                </p>
+              )}
             </div>
           </div>
         </form>

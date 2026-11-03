@@ -1889,6 +1889,7 @@ export async function getLoyaltySettings(req: Request, res: Response) {
         loyaltyCoffeeSpendPerPoint: true,
         loyaltyPointValue: true,
         loyaltyMinOrderAmount: true,
+        loyaltyMinRedeemPoints: true,
       },
     });
 
@@ -1940,6 +1941,7 @@ export async function updateLoyaltySettings(req: Request, res: Response) {
       loyaltyCoffeeSpendPerPoint,
       loyaltyPointValue,
       loyaltyMinOrderAmount,
+      loyaltyMinRedeemPoints,
     } = req.body;
 
     const updated = await prisma.restaurant.update({
@@ -1951,6 +1953,7 @@ export async function updateLoyaltySettings(req: Request, res: Response) {
         loyaltyCoffeeSpendPerPoint: loyaltyCoffeeSpendPerPoint !== undefined ? Math.max(0.1, parseFloat(String(loyaltyCoffeeSpendPerPoint)) || 10.0) : undefined,
         loyaltyPointValue: loyaltyPointValue !== undefined ? Math.max(0.01, parseFloat(String(loyaltyPointValue)) || 1.0) : undefined,
         loyaltyMinOrderAmount: loyaltyMinOrderAmount !== undefined ? Math.max(0, parseFloat(String(loyaltyMinOrderAmount)) || 0) : undefined,
+        loyaltyMinRedeemPoints: loyaltyMinRedeemPoints !== undefined ? Math.max(0, parseInt(String(loyaltyMinRedeemPoints), 10) || 0) : undefined,
       },
       select: {
         id: true,
@@ -1962,6 +1965,7 @@ export async function updateLoyaltySettings(req: Request, res: Response) {
         loyaltyCoffeeSpendPerPoint: true,
         loyaltyPointValue: true,
         loyaltyMinOrderAmount: true,
+        loyaltyMinRedeemPoints: true,
       },
     });
 

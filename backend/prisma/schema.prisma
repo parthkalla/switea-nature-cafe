@@ -61,6 +61,7 @@ model Restaurant {
   loyaltyCoffeeSpendPerPoint Float    @default(10.0)
   loyaltyPointValue          Float    @default(1.0)
   loyaltyMinOrderAmount      Float    @default(0.0)
+  loyaltyMinRedeemPoints     Int      @default(0)
   isPayAtCounterOnly Boolean  @default(false)
   isOpen             Boolean  @default(true)
   isDeleted          Boolean  @default(false)

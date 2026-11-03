@@ -34,6 +34,7 @@ export interface Restaurant {
   loyaltyCoffeeSpendPerPoint?: number;
   loyaltyPointValue?: number;
   loyaltyMinOrderAmount?: number;
+  loyaltyMinRedeemPoints?: number;
 }
 
 export interface LandingPageContent {

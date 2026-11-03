@@ -129,6 +129,7 @@ export async function getMenu(req: Request, res: Response) {
         loyaltyCoffeeSpendPerPoint: true,
         loyaltyPointValue: true,
         loyaltyMinOrderAmount: true,
+        loyaltyMinRedeemPoints: true,
         isPayAtCounterOnly: true,
         isOpen: true,
         isDeleted: true,
@@ -371,7 +372,18 @@ export async function getLoyaltyBalance(req: Request, res: Response) {
 
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug },
-      select: { id: true, name: true, isDeleted: true },
+      select: {
+        id: true,
+        name: true,
+        isDeleted: true,
+        isLoyaltyEnabled: true,
+        loyaltyPerOrderPoints: true,
+        loyaltyFoodSpendPerPoint: true,
+        loyaltyCoffeeSpendPerPoint: true,
+        loyaltyPointValue: true,
+        loyaltyMinOrderAmount: true,
+        loyaltyMinRedeemPoints: true,
+      },
     });
 
     if (!restaurant || restaurant.isDeleted) {
@@ -389,15 +401,16 @@ export async function getLoyaltyBalance(req: Request, res: Response) {
       coffeePoints: loyalty?.coffeePoints || 0,
       lifetimeFoodPoints: loyalty?.lifetimeFoodPoints || 0,
       lifetimeCoffeePoints: loyalty?.lifetimeCoffeePoints || 0,
-      foodPointsValue: (loyalty?.foodPoints || 0) * ((restaurant as any).loyaltyPointValue || 1.0),
-      coffeePointsValue: (loyalty?.coffeePoints || 0) * ((restaurant as any).loyaltyPointValue || 1.0),
+      foodPointsValue: (loyalty?.foodPoints || 0) * (restaurant.loyaltyPointValue || 1.0),
+      coffeePointsValue: (loyalty?.coffeePoints || 0) * (restaurant.loyaltyPointValue || 1.0),
       earnRate: {
-        food: `1 Food Point per ₹${(restaurant as any).loyaltyFoodSpendPerPoint || 10} spent on Food`,
-        coffee: `1 Coffee Point per ₹${(restaurant as any).loyaltyCoffeeSpendPerPoint || 10} spent on Coffee/Beverages`,
-        perOrderBonus: (restaurant as any).loyaltyPerOrderPoints || 0,
-        pointValue: (restaurant as any).loyaltyPointValue || 1.0,
-        minOrderAmount: (restaurant as any).loyaltyMinOrderAmount || 0,
-        isLoyaltyEnabled: (restaurant as any).isLoyaltyEnabled !== false,
+        food: `1 Food Point per ₹${restaurant.loyaltyFoodSpendPerPoint || 10} spent on Food`,
+        coffee: `1 Coffee Point per ₹${restaurant.loyaltyCoffeeSpendPerPoint || 10} spent on Coffee/Beverages`,
+        perOrderBonus: restaurant.loyaltyPerOrderPoints || 0,
+        pointValue: restaurant.loyaltyPointValue || 1.0,
+        minOrderAmount: restaurant.loyaltyMinOrderAmount || 0,
+        minRedeemPoints: restaurant.loyaltyMinRedeemPoints || 0,
+        isLoyaltyEnabled: restaurant.isLoyaltyEnabled !== false,
       },
     });
   } catch (err: any) {
@@ -634,17 +647,22 @@ export async function calculateCart(req: Request, res: Response) {
       }
     }
 
+    const minRedeemPoints = (restaurant as any).loyaltyMinRedeemPoints || 0;
+    const totalWalletPoints = availableFoodPoints + availableCoffeePoints;
+    const isRedeemEligible = minRedeemPoints <= 0 || totalWalletPoints >= minRedeemPoints;
+
     // Max redeemable: cannot exceed user's balance and cannot exceed food/coffee portions
-    const maxRedeemableFoodPoints = Math.min(availableFoodPoints, Math.floor(foodSubtotal));
-    const maxRedeemableCoffeePoints = Math.min(availableCoffeePoints, Math.floor(coffeeSubtotal));
+    // If wallet has less than minRedeemPoints, maxRedeemable is 0
+    const maxRedeemableFoodPoints = isRedeemEligible ? Math.min(availableFoodPoints, Math.floor(foodSubtotal)) : 0;
+    const maxRedeemableCoffeePoints = isRedeemEligible ? Math.min(availableCoffeePoints, Math.floor(coffeeSubtotal)) : 0;
 
     let foodPointsRedeemed = 0;
-    if (redeemFoodPoints && Number(redeemFoodPoints) > 0) {
+    if (isRedeemEligible && redeemFoodPoints && Number(redeemFoodPoints) > 0) {
       foodPointsRedeemed = Math.min(Number(redeemFoodPoints), maxRedeemableFoodPoints);
     }
 
     let coffeePointsRedeemed = 0;
-    if (redeemCoffeePoints && Number(redeemCoffeePoints) > 0) {
+    if (isRedeemEligible && redeemCoffeePoints && Number(redeemCoffeePoints) > 0) {
       coffeePointsRedeemed = Math.min(Number(redeemCoffeePoints), maxRedeemableCoffeePoints);
     }
 
@@ -669,6 +687,11 @@ export async function calculateCart(req: Request, res: Response) {
       foodPointsRedeemed,
       coffeePointsRedeemed,
       loyaltyDiscount: Number(loyaltyDiscount.toFixed(2)),
+      minRedeemPoints,
+      isRedeemEligible,
+      minRedeemPointsError: !isRedeemEligible && ((redeemFoodPoints && Number(redeemFoodPoints) > 0) || (redeemCoffeePoints && Number(redeemCoffeePoints) > 0))
+        ? `Minimum ${minRedeemPoints} points required in your wallet to redeem points.`
+        : null,
       discountAmount: Number(discountAmount.toFixed(2)),
       discount: appliedDiscount,
       discountError,
@@ -910,6 +933,15 @@ export async function createOrder(req: Request, res: Response) {
         loyaltyRecord = await prisma.customerLoyalty.update({
           where: { id: loyaltyRecord.id },
           data: { customerName: String(customerName).trim() },
+        });
+      }
+
+      const minRedeemPoints = (restaurant as any).loyaltyMinRedeemPoints || 0;
+      const totalWalletPoints = (loyaltyRecord.foodPoints || 0) + (loyaltyRecord.coffeePoints || 0);
+      const wantRedeem = (redeemFoodPoints && Number(redeemFoodPoints) > 0) || (redeemCoffeePoints && Number(redeemCoffeePoints) > 0);
+      if (wantRedeem && minRedeemPoints > 0 && totalWalletPoints < minRedeemPoints) {
+        return res.status(400).json({
+          error: `Minimum ${minRedeemPoints} points required in your wallet to redeem (you currently have ${totalWalletPoints} points).`,
         });
       }
 

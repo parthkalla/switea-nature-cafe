@@ -518,6 +518,7 @@ export const api = {
     loyaltyCoffeeSpendPerPoint?: number;
     loyaltyPointValue?: number;
     loyaltyMinOrderAmount?: number;
+    loyaltyMinRedeemPoints?: number;
   }) {
     const res = await fetch(`${API_BASE}/admin/loyalty/settings`, {
       method: 'PUT',
