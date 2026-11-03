@@ -24,7 +24,7 @@ export const AdminMenu: React.FC = () => {
   const [image, setImage] = useState('');
   const [prepTime, setPrepTime] = useState(15);
   const [itemType, setItemType] = useState<'INHERIT' | 'FOOD' | 'COFFEE'>('INHERIT');
-  const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number | string>(0);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -456,7 +456,7 @@ export const AdminMenu: React.FC = () => {
                       <span>Custom Loyalty Points per Item</span>
                     </label>
                     <span className="text-[10px] text-purple-700 font-bold">
-                      {loyaltyPoints > 0 ? `${loyaltyPoints} pts awarded` : 'Default spend rate (0)'}
+                      {Number(loyaltyPoints) > 0 ? `${loyaltyPoints} pts awarded` : 'Default spend rate (0)'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -465,21 +465,26 @@ export const AdminMenu: React.FC = () => {
                       min={0}
                       step={1}
                       value={loyaltyPoints}
-                      onChange={(e) => setLoyaltyPoints(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      onChange={(e) => setLoyaltyPoints(e.target.value)}
+                      onBlur={() => {
+                        if (loyaltyPoints === '' || isNaN(Number(loyaltyPoints))) {
+                          setLoyaltyPoints(0);
+                        }
+                      }}
                       placeholder="0"
                       className="w-24 px-3 py-2 rounded-xl border border-purple-300 font-bold text-stone-900 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-600"
                     />
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setLoyaltyPoints((p) => p + 5)}
+                        onClick={() => setLoyaltyPoints((p) => (parseInt(String(p || 0), 10) || 0) + 5)}
                         className="px-2.5 py-1.5 bg-white hover:bg-purple-100 border border-purple-300 text-purple-800 text-xs font-bold rounded-lg transition-colors"
                       >
                         +5 pts
                       </button>
                       <button
                         type="button"
-                        onClick={() => setLoyaltyPoints((p) => p + 10)}
+                        onClick={() => setLoyaltyPoints((p) => (parseInt(String(p || 0), 10) || 0) + 10)}
                         className="px-2.5 py-1.5 bg-white hover:bg-purple-100 border border-purple-300 text-purple-800 text-xs font-bold rounded-lg transition-colors"
                       >
                         +10 pts

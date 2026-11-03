@@ -31,11 +31,11 @@ export const AdminLoyalty: React.FC = () => {
 
   // Global Loyalty Settings State
   const [isLoyaltyEnabled, setIsLoyaltyEnabled] = useState(true);
-  const [loyaltyPerOrderPoints, setLoyaltyPerOrderPoints] = useState<number>(0);
-  const [loyaltyFoodSpendPerPoint, setLoyaltyFoodSpendPerPoint] = useState<number>(10);
-  const [loyaltyCoffeeSpendPerPoint, setLoyaltyCoffeeSpendPerPoint] = useState<number>(10);
-  const [loyaltyPointValue, setLoyaltyPointValue] = useState<number>(1.0);
-  const [loyaltyMinOrderAmount, setLoyaltyMinOrderAmount] = useState<number>(0);
+  const [loyaltyPerOrderPoints, setLoyaltyPerOrderPoints] = useState<number | string>(0);
+  const [loyaltyFoodSpendPerPoint, setLoyaltyFoodSpendPerPoint] = useState<number | string>(10);
+  const [loyaltyCoffeeSpendPerPoint, setLoyaltyCoffeeSpendPerPoint] = useState<number | string>(10);
+  const [loyaltyPointValue, setLoyaltyPointValue] = useState<number | string>(1.0);
+  const [loyaltyMinOrderAmount, setLoyaltyMinOrderAmount] = useState<number | string>(0);
 
   // Stats State
   const [stats, setStats] = useState({
@@ -54,8 +54,8 @@ export const AdminLoyalty: React.FC = () => {
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<'ALL' | 'FOOD' | 'COFFEE' | 'CUSTOM'>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-  // Item points edit state: { [itemId: string]: number }
-  const [itemPointsMap, setItemPointsMap] = useState<Record<string, number>>({});
+  // Item points edit state: { [itemId: string]: number | string }
+  const [itemPointsMap, setItemPointsMap] = useState<Record<string, number | string>>({});
   const [savingItemId, setSavingItemId] = useState<string | null>(null);
   const [itemSaveFeedback, setItemSaveFeedback] = useState<Record<string, boolean>>({});
 
@@ -135,13 +135,15 @@ export const AdminLoyalty: React.FC = () => {
   const handleSaveItemLoyalty = async (itemId: string) => {
     try {
       setSavingItemId(itemId);
-      const pts = itemPointsMap[itemId] || 0;
+      const raw = itemPointsMap[itemId];
+      const pts = Math.max(0, parseInt(String(raw), 10) || 0);
       await api.updateMenuItemLoyalty(itemId, pts);
 
       // Update local items state
       setItems((prev) =>
         prev.map((it) => (it.id === itemId ? { ...it, loyaltyPoints: pts } : it))
       );
+      setItemPointsMap((prev) => ({ ...prev, [itemId]: pts }));
 
       // Show temporary checkmark feedback
       setItemSaveFeedback((prev) => ({ ...prev, [itemId]: true }));
@@ -169,7 +171,7 @@ export const AdminLoyalty: React.FC = () => {
       if (selectedTypeFilter === 'FOOD' && resolvedType !== 'FOOD') return false;
       if (selectedTypeFilter === 'COFFEE' && resolvedType !== 'COFFEE') return false;
       if (selectedTypeFilter === 'CUSTOM') {
-        const pts = itemPointsMap[item.id] || 0;
+        const pts = Number(itemPointsMap[item.id] || 0);
         if (pts <= 0) return false;
       }
 
@@ -207,7 +209,7 @@ export const AdminLoyalty: React.FC = () => {
       });
       setItemPointsMap(newMap);
       setItems((prev) =>
-        prev.map((it) => (newMap[it.id] !== undefined ? { ...it, loyaltyPoints: newMap[it.id] } : it))
+        prev.map((it) => (newMap[it.id] !== undefined ? { ...it, loyaltyPoints: Number(newMap[it.id]) || 0 } : it))
       );
 
       setSaveSuccessMsg(`Updated ${updates.length} items to ${pts} loyalty points!`);
@@ -308,7 +310,7 @@ export const AdminLoyalty: React.FC = () => {
             </div>
             <div className="mt-2">
               <span className="font-serif text-xl sm:text-2xl font-bold text-purple-700">
-                {items.filter((it) => (itemPointsMap[it.id] || 0) > 0).length} / {items.length}
+                {items.filter((it) => Number(itemPointsMap[it.id] || 0) > 0).length} / {items.length}
               </span>
             </div>
             <p className="text-[11px] text-stone-400 mt-0.5">Dishes/drinks with individual points</p>
@@ -382,7 +384,12 @@ export const AdminLoyalty: React.FC = () => {
                   min={0}
                   step={1}
                   value={loyaltyPerOrderPoints}
-                  onChange={(e) => setLoyaltyPerOrderPoints(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                  onChange={(e) => setLoyaltyPerOrderPoints(e.target.value)}
+                  onBlur={() => {
+                    if (loyaltyPerOrderPoints === '' || isNaN(Number(loyaltyPerOrderPoints))) {
+                      setLoyaltyPerOrderPoints(0);
+                    }
+                  }}
                   className="w-full px-3.5 py-2 rounded-xl border border-amber-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
                 <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">pts / order</span>
@@ -409,7 +416,12 @@ export const AdminLoyalty: React.FC = () => {
                   min={1}
                   step={1}
                   value={loyaltyFoodSpendPerPoint}
-                  onChange={(e) => setLoyaltyFoodSpendPerPoint(Math.max(1, parseFloat(e.target.value) || 1))}
+                  onChange={(e) => setLoyaltyFoodSpendPerPoint(e.target.value)}
+                  onBlur={() => {
+                    if (loyaltyFoodSpendPerPoint === '' || Number(loyaltyFoodSpendPerPoint) < 1) {
+                      setLoyaltyFoodSpendPerPoint(10);
+                    }
+                  }}
                   className="w-full px-3.5 py-2 rounded-xl border border-emerald-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">₹ spent = 1 pt</span>
@@ -436,7 +448,12 @@ export const AdminLoyalty: React.FC = () => {
                   min={1}
                   step={1}
                   value={loyaltyCoffeeSpendPerPoint}
-                  onChange={(e) => setLoyaltyCoffeeSpendPerPoint(Math.max(1, parseFloat(e.target.value) || 1))}
+                  onChange={(e) => setLoyaltyCoffeeSpendPerPoint(e.target.value)}
+                  onBlur={() => {
+                    if (loyaltyCoffeeSpendPerPoint === '' || Number(loyaltyCoffeeSpendPerPoint) < 1) {
+                      setLoyaltyCoffeeSpendPerPoint(10);
+                    }
+                  }}
                   className="w-full px-3.5 py-2 rounded-xl border border-amber-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
                 <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">₹ spent = 1 pt</span>
@@ -465,7 +482,12 @@ export const AdminLoyalty: React.FC = () => {
                   min={0.1}
                   step={0.1}
                   value={loyaltyPointValue}
-                  onChange={(e) => setLoyaltyPointValue(Math.max(0.1, parseFloat(e.target.value) || 1))}
+                  onChange={(e) => setLoyaltyPointValue(e.target.value)}
+                  onBlur={() => {
+                    if (loyaltyPointValue === '' || Number(loyaltyPointValue) <= 0) {
+                      setLoyaltyPointValue(1.0);
+                    }
+                  }}
                   className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800"
                 />
                 <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">₹ / point</span>
@@ -492,7 +514,12 @@ export const AdminLoyalty: React.FC = () => {
                   min={0}
                   step={10}
                   value={loyaltyMinOrderAmount}
-                  onChange={(e) => setLoyaltyMinOrderAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                  onChange={(e) => setLoyaltyMinOrderAmount(e.target.value)}
+                  onBlur={() => {
+                    if (loyaltyMinOrderAmount === '' || isNaN(Number(loyaltyMinOrderAmount))) {
+                      setLoyaltyMinOrderAmount(0);
+                    }
+                  }}
                   className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800"
                 />
                 <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">INR ₹ min</span>
@@ -602,7 +629,7 @@ export const AdminLoyalty: React.FC = () => {
                     : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
                 }`}
               >
-                <span>🎁 Custom Points ({items.filter((it) => (itemPointsMap[it.id] || 0) > 0).length})</span>
+                <span>🎁 Custom Points ({items.filter((it) => Number(itemPointsMap[it.id] || 0) > 0).length})</span>
               </button>
             </div>
 
@@ -661,7 +688,7 @@ export const AdminLoyalty: React.FC = () => {
                     const currentPoints = itemPointsMap[item.id] !== undefined ? itemPointsMap[item.id] : ((item as any).loyaltyPoints || 0);
                     const isSaving = savingItemId === item.id;
                     const isSaved = itemSaveFeedback[item.id];
-                    const hasCustomPoints = currentPoints > 0;
+                    const hasCustomPoints = Number(currentPoints) > 0;
 
                     return (
                       <tr key={item.id} className="hover:bg-stone-50/70 transition-colors">
@@ -717,7 +744,7 @@ export const AdminLoyalty: React.FC = () => {
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl bg-stone-100 text-stone-600 text-[10px] font-medium border border-stone-200">
-                              <span>⚡ Default Rate (~{Math.floor(item.price / (resolvedType === 'COFFEE' ? loyaltyCoffeeSpendPerPoint : loyaltyFoodSpendPerPoint))} pts)</span>
+                              <span>⚡ Default Rate (~{Math.floor(item.price / (Number(resolvedType === 'COFFEE' ? loyaltyCoffeeSpendPerPoint : loyaltyFoodSpendPerPoint) || 10))} pts)</span>
                             </span>
                           )}
                         </td>
@@ -728,10 +755,16 @@ export const AdminLoyalty: React.FC = () => {
                               type="number"
                               min={0}
                               step={1}
-                              value={currentPoints}
+                              value={itemPointsMap[item.id] !== undefined ? itemPointsMap[item.id] : ((item as any).loyaltyPoints || 0)}
                               onChange={(e) => {
-                                const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                const val = e.target.value;
                                 setItemPointsMap((prev) => ({ ...prev, [item.id]: val }));
+                              }}
+                              onBlur={() => {
+                                const raw = itemPointsMap[item.id];
+                                if (raw === '' || isNaN(Number(raw))) {
+                                  setItemPointsMap((prev) => ({ ...prev, [item.id]: 0 }));
+                                }
                               }}
                               className="w-20 px-2.5 py-1.5 rounded-xl border border-stone-300 font-bold text-stone-900 text-xs focus:outline-none focus:ring-2 focus:ring-nature-800"
                             />
@@ -739,7 +772,10 @@ export const AdminLoyalty: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setItemPointsMap((prev) => ({ ...prev, [item.id]: (prev[item.id] || 0) + 5 }))
+                                  setItemPointsMap((prev) => ({
+                                    ...prev,
+                                    [item.id]: (parseInt(String(prev[item.id] !== undefined ? prev[item.id] : (item as any).loyaltyPoints || 0), 10) || 0) + 5,
+                                  }))
                                 }
                                 className="px-1.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-[10px] font-bold"
                                 title="Add 5 points"
