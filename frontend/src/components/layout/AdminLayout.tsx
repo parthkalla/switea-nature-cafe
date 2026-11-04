@@ -268,7 +268,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           <div className="fixed inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
           <div className="relative w-72 bg-nature-950 text-white flex flex-col h-full z-10 p-4">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-nature-800">
-              <span className="font-serif text-xl font-bold">RoastFuze Admin</span>
+              <span className="font-serif text-xl font-bold">{cafeName} Admin</span>
               <button onClick={() => setSidebarOpen(false)} className="p-1 text-stone-400 hover:text-white">
                 <X className="w-6 h-6" />
               </button>

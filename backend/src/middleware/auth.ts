@@ -46,7 +46,15 @@ export async function authenticateJWT(req: Request, res: Response, next: NextFun
     // Check if user still exists and is active
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      include: { memberships: true },
+      include: {
+        memberships: {
+          include: {
+            restaurant: {
+              select: { id: true, slug: true, isDeleted: true },
+            },
+          },
+        },
+      },
     });
 
     if (!user || user.status !== 'ACTIVE') {
@@ -78,23 +86,38 @@ export async function authenticateJWT(req: Request, res: Response, next: NextFun
       } else if (effectiveSlug) {
         const found = await prisma.restaurant.findUnique({
           where: { slug: effectiveSlug },
-          select: { id: true },
+          select: { id: true, isDeleted: true },
         });
-        if (found) targetRestaurantId = found.id;
+        if (found && !found.isDeleted) targetRestaurantId = found.id;
       }
     } else if (effectiveSlug) {
       // Find if user has membership in the requested restaurant
       const userMatched = await prisma.restaurant.findUnique({
         where: { slug: effectiveSlug },
-        select: { id: true },
+        select: { id: true, isDeleted: true },
       });
-      if (userMatched && user.memberships.some(m => m.restaurantId === userMatched.id)) {
+      if (userMatched && !userMatched.isDeleted && user.memberships.some(m => m.restaurantId === userMatched.id)) {
         targetRestaurantId = userMatched.id;
       }
     }
 
     if (!targetRestaurantId) {
-      targetRestaurantId = user.memberships[0]?.restaurantId;
+      // Pick the first non-deleted restaurant membership
+      const validMembership = user.memberships.find(m => m.restaurant && !m.restaurant.isDeleted);
+      if (validMembership) {
+        targetRestaurantId = validMembership.restaurantId;
+      }
+    }
+
+    // Double check targetRestaurantId is valid and not deleted
+    if (targetRestaurantId) {
+      const checkValid = await prisma.restaurant.findUnique({
+        where: { id: targetRestaurantId },
+        select: { id: true, isDeleted: true },
+      });
+      if (!checkValid || checkValid.isDeleted) {
+        targetRestaurantId = undefined;
+      }
     }
 
     if (!targetRestaurantId) {

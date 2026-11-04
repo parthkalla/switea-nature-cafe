@@ -388,14 +388,15 @@ export const AdminLoyalty: React.FC = () => {
                   step={1}
                   value={loyaltyPerOrderPoints}
                   onChange={(e) => setLoyaltyPerOrderPoints(e.target.value)}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
                     if (loyaltyPerOrderPoints === '' || isNaN(Number(loyaltyPerOrderPoints))) {
                       setLoyaltyPerOrderPoints(0);
                     }
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl border border-amber-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full pl-3.5 pr-28 py-2.5 rounded-xl border border-amber-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">pts / order</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">pts / order</span>
               </div>
             </div>
 
@@ -420,14 +421,15 @@ export const AdminLoyalty: React.FC = () => {
                   step={1}
                   value={loyaltyFoodSpendPerPoint}
                   onChange={(e) => setLoyaltyFoodSpendPerPoint(e.target.value)}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
                     if (loyaltyFoodSpendPerPoint === '' || Number(loyaltyFoodSpendPerPoint) < 1) {
                       setLoyaltyFoodSpendPerPoint(10);
                     }
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl border border-emerald-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full pl-3.5 pr-32 py-2.5 rounded-xl border border-emerald-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">₹ spent = 1 pt</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">₹ spent = 1 pt</span>
               </div>
             </div>
 
@@ -452,14 +454,15 @@ export const AdminLoyalty: React.FC = () => {
                   step={1}
                   value={loyaltyCoffeeSpendPerPoint}
                   onChange={(e) => setLoyaltyCoffeeSpendPerPoint(e.target.value)}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
                     if (loyaltyCoffeeSpendPerPoint === '' || Number(loyaltyCoffeeSpendPerPoint) < 1) {
                       setLoyaltyCoffeeSpendPerPoint(10);
                     }
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl border border-amber-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full pl-3.5 pr-32 py-2.5 rounded-xl border border-amber-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">₹ spent = 1 pt</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">₹ spent = 1 pt</span>
               </div>
             </div>
           </div>
@@ -486,14 +489,15 @@ export const AdminLoyalty: React.FC = () => {
                   step={0.1}
                   value={loyaltyPointValue}
                   onChange={(e) => setLoyaltyPointValue(e.target.value)}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
                     if (loyaltyPointValue === '' || Number(loyaltyPointValue) <= 0) {
                       setLoyaltyPointValue(1.0);
                     }
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800"
+                  className="w-full pl-3.5 pr-24 py-2.5 rounded-xl border border-stone-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">₹ / point</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">₹ / point</span>
               </div>
             </div>
 
@@ -518,14 +522,15 @@ export const AdminLoyalty: React.FC = () => {
                   step={10}
                   value={loyaltyMinOrderAmount}
                   onChange={(e) => setLoyaltyMinOrderAmount(e.target.value)}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
                     if (loyaltyMinOrderAmount === '' || isNaN(Number(loyaltyMinOrderAmount))) {
                       setLoyaltyMinOrderAmount(0);
                     }
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl border border-stone-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800"
+                  className="w-full pl-3.5 pr-28 py-2.5 rounded-xl border border-stone-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-nature-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">INR ₹ min</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">INR ₹ min</span>
               </div>
             </div>
 
@@ -550,14 +555,15 @@ export const AdminLoyalty: React.FC = () => {
                   step={5}
                   value={loyaltyMinRedeemPoints}
                   onChange={(e) => setLoyaltyMinRedeemPoints(e.target.value)}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
                     if (loyaltyMinRedeemPoints === '' || isNaN(Number(loyaltyMinRedeemPoints))) {
                       setLoyaltyMinRedeemPoints(0);
                     }
                   }}
-                  className="w-full px-3.5 py-2 rounded-xl border border-purple-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  className="w-full pl-3.5 pr-28 py-2.5 rounded-xl border border-purple-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3 text-xs text-stone-400 font-semibold">pts in wallet</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">pts in wallet</span>
               </div>
             </div>
           </div>
@@ -804,13 +810,14 @@ export const AdminLoyalty: React.FC = () => {
                                 const val = e.target.value;
                                 setItemPointsMap((prev) => ({ ...prev, [item.id]: val }));
                               }}
+                              onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                               onBlur={() => {
                                 const raw = itemPointsMap[item.id];
                                 if (raw === '' || isNaN(Number(raw))) {
                                   setItemPointsMap((prev) => ({ ...prev, [item.id]: 0 }));
                                 }
                               }}
-                              className="w-20 px-2.5 py-1.5 rounded-xl border border-stone-300 font-bold text-stone-900 text-xs focus:outline-none focus:ring-2 focus:ring-nature-800"
+                              className="w-20 px-2.5 py-1.5 rounded-xl border border-stone-300 font-bold text-stone-900 text-xs focus:outline-none focus:ring-2 focus:ring-nature-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <div className="flex items-center gap-1">
                               <button

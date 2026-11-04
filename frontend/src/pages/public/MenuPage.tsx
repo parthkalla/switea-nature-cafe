@@ -64,6 +64,23 @@ export const MenuPage: React.FC = () => {
         setRestaurant(menuRes.restaurant);
         setCategories(menuRes.categories || []);
 
+        // Dynamic Document Title and Favicon
+        if (menuRes.restaurant) {
+          const rest = menuRes.restaurant;
+          if (rest.slug !== 'roastfuze') {
+            document.title = `${rest.name} | ${rest.tagLine || 'Digital Menu'}`;
+            let link = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
+            if (link) {
+              if (rest.logo) {
+                link.href = rest.logo;
+              } else {
+                const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${rest.primaryColor || '#0f172a'}"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="serif" font-weight="900" font-size="34" fill="#ffffff">${(rest.name || 'C').charAt(0).toUpperCase()}</text></svg>`;
+                link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+              }
+            }
+          }
+        }
+
         if (initialCategory) {
           setSelectedCategory(initialCategory);
         }
@@ -151,13 +168,13 @@ export const MenuPage: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
               <span className="text-xs uppercase tracking-wider font-bold text-amber-900 block mb-1">
-                {restaurant?.tagLine || 'Musical Balcony Cafe • Jaipur'}
+                {restaurant?.tagLine || (restaurant?.slug !== 'roastfuze' ? 'Digital QR Menu' : 'Musical Balcony Cafe • Jaipur')}
               </span>
               <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900">
                 {restaurant?.name || 'RoastFuze Coffee Bar'} Digital Menu
               </h1>
               <p className="text-xs text-stone-500 mt-1 flex items-center gap-4">
-                <span>📍 Vaishali Nagar, Jaipur</span>
+                <span>📍 {restaurant?.address ? `${restaurant.address}, ${restaurant.city || 'Jaipur'}` : (restaurant?.city ? `${restaurant.city}, ${restaurant.state || 'Rajasthan'}` : 'Vaishali Nagar, Jaipur')}</span>
                 <span>⏰ {restaurant?.openingHours || '10:00 AM – 11:00 PM'}</span>
                 <span className="text-amber-800 font-semibold">● Open Now</span>
               </p>

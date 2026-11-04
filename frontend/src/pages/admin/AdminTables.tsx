@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Printer, RefreshCw, Layers, QrCode, Search, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { QRCodeCard } from '../../components/qr/QRCodeCard';
+import { TableStandeeModal } from '../../components/qr/TableStandeeModal';
 import { api } from '../../services/api';
 import { Table } from '../../types';
 
@@ -9,6 +10,8 @@ export const AdminTables: React.FC = () => {
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedPrintTable, setSelectedPrintTable] = useState<Table | null>(null);
+  const [isBatchPrint, setIsBatchPrint] = useState(false);
 
   // Form inputs
   const [tableNumber, setTableNumber] = useState('');
@@ -104,7 +107,13 @@ export const AdminTables: React.FC = () => {
   };
 
   const handlePrintAll = () => {
-    window.print();
+    setIsBatchPrint(true);
+    setSelectedPrintTable(null);
+  };
+
+  const handlePrintSingleStandee = (tbl: Table) => {
+    setSelectedPrintTable(tbl);
+    setIsBatchPrint(false);
   };
 
   return (
@@ -172,6 +181,7 @@ export const AdminTables: React.FC = () => {
                 onRegenerate={handleRegenerate}
                 onDelete={handleDelete}
                 onFree={handleFreeTable}
+                onPrintStandee={handlePrintSingleStandee}
               />
             ))}
           </div>
@@ -265,6 +275,19 @@ export const AdminTables: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Premium Table Standee Printable Modal */}
+        {(selectedPrintTable || isBatchPrint) && (
+          <TableStandeeModal
+            table={selectedPrintTable}
+            allTables={tables}
+            isBatch={isBatchPrint}
+            onClose={() => {
+              setSelectedPrintTable(null);
+              setIsBatchPrint(false);
+            }}
+          />
         )}
       </div>
     </AdminLayout>

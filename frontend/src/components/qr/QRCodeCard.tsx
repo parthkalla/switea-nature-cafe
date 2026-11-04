@@ -8,15 +8,24 @@ interface QRCodeCardProps {
   onRegenerate: (tableId: string) => void;
   onDelete: (tableId: string) => void;
   onFree?: (tableId: string) => void;
+  onPrintStandee?: (table: Table) => void;
 }
 
-export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onDelete, onFree }) => {
+export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onDelete, onFree, onPrintStandee }) => {
   const qrRef = useRef<SVGSVGElement>(null);
   const token = table.qrCode?.token || '';
   
   // Use current live website domain so QR codes always point to live domain when deployed
   const liveOrigin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
   const targetUrl = liveOrigin ? `${liveOrigin}/menu?table=${token}` : (table.qrUrl || `/menu?table=${token}`);
+
+  const handlePrint = () => {
+    if (onPrintStandee) {
+      onPrintStandee(table);
+    } else {
+      window.print();
+    }
+  };
 
   const downloadSVG = () => {
     if (!qrRef.current) return;
@@ -51,10 +60,6 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({ table, onRegenerate, onD
       }
     };
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   return (

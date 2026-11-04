@@ -92,6 +92,7 @@ export async function getMe(req: Request, res: Response) {
       where: { id: req.user.id },
       include: {
         memberships: {
+          where: { restaurant: { isDeleted: false } },
           include: {
             restaurant: true,
           },
@@ -113,7 +114,8 @@ export async function getMe(req: Request, res: Response) {
       role: user.role,
       status: user.status,
       restaurant: defaultMembership?.restaurant || null,
-      restaurantId: defaultMembership?.restaurantId,
+      restaurantId: defaultMembership?.restaurantId || req.user.restaurantId,
+      memberships: user.memberships,
     });
   } catch (err: any) {
     console.error('getMe error:', err);

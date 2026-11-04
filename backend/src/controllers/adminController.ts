@@ -383,7 +383,33 @@ export async function getWebsiteCustomizer(req: Request, res: Response) {
 
 export async function updateWebsiteCustomizer(req: Request, res: Response) {
   try {
-    const restaurantId = getRestaurantId(req);
+    let restaurantId = getRestaurantId(req);
+    let existingRest = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+    if (!existingRest || existingRest.isDeleted) {
+      const headerSlug = ((req.headers['x-restaurant-slug'] || req.query.slug) as string)?.toLowerCase().trim();
+      if (headerSlug && headerSlug !== 'all') {
+        const bySlug = await prisma.restaurant.findUnique({ where: { slug: headerSlug } });
+        if (bySlug && !bySlug.isDeleted) {
+          restaurantId = bySlug.id;
+          existingRest = bySlug;
+        }
+      }
+    }
+    if (!existingRest || existingRest.isDeleted) {
+      const fallback = await prisma.restaurant.findFirst({
+        where: { isDeleted: false },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (fallback) {
+        restaurantId = fallback.id;
+        existingRest = fallback;
+      }
+    }
+
+    if (!existingRest) {
+      return res.status(404).json({ error: 'Restaurant not found.' });
+    }
+
     const { restaurant: restData, landingContent: landingData, isPublished } = req.body;
 
     await prisma.$transaction(async (tx) => {
@@ -1935,7 +1961,33 @@ export async function getLoyaltySettings(req: Request, res: Response) {
 
 export async function updateLoyaltySettings(req: Request, res: Response) {
   try {
-    const restaurantId = getRestaurantId(req);
+    let restaurantId = getRestaurantId(req);
+    let existingRest = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+    if (!existingRest || existingRest.isDeleted) {
+      const headerSlug = ((req.headers['x-restaurant-slug'] || req.query.slug) as string)?.toLowerCase().trim();
+      if (headerSlug && headerSlug !== 'all') {
+        const bySlug = await prisma.restaurant.findUnique({ where: { slug: headerSlug } });
+        if (bySlug && !bySlug.isDeleted) {
+          restaurantId = bySlug.id;
+          existingRest = bySlug;
+        }
+      }
+    }
+    if (!existingRest || existingRest.isDeleted) {
+      const fallback = await prisma.restaurant.findFirst({
+        where: { isDeleted: false },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (fallback) {
+        restaurantId = fallback.id;
+        existingRest = fallback;
+      }
+    }
+
+    if (!existingRest) {
+      return res.status(404).json({ error: 'Restaurant not found.' });
+    }
+
     const {
       isLoyaltyEnabled,
       loyaltyPerOrderPoints,
