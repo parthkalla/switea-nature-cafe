@@ -26,6 +26,7 @@ import {
   Sparkles,
   ArrowRight,
   Bike,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getSocket } from '../../services/socket';
@@ -168,6 +169,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const navItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+    { label: 'POS Terminal', path: '/admin/pos', icon: Receipt },
     { label: 'Live Orders', path: '/admin/orders', icon: ShoppingBag },
     { label: 'Kitchen Display', path: '/admin/kitchen', icon: ChefHat },
     { label: 'Tables & QR Codes', path: '/admin/tables', icon: QrCode },

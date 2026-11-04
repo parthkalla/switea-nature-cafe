@@ -41,6 +41,7 @@ import { AdminCustomers } from './pages/admin/AdminCustomers';
 import { AdminMarketplace } from './pages/admin/AdminMarketplace';
 import { AdminNotifications } from './pages/admin/AdminNotifications';
 import { AdminLoyalty } from './pages/admin/AdminLoyalty';
+import { AdminPOS } from './pages/admin/AdminPOS';
 
 // Super Admin Pages
 import { SuperAdminLoginPage } from './pages/superAdmin/SuperAdminLoginPage';
@@ -116,6 +117,7 @@ export const App: React.FC = () => {
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="/admin/dashboard" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+            <Route path="/admin/pos" element={<ProtectedAdminRoute><AdminPOS /></ProtectedAdminRoute>} />
             <Route path="/admin/orders" element={<ProtectedAdminRoute><AdminOrders /></ProtectedAdminRoute>} />
             <Route path="/admin/kitchen" element={<ProtectedAdminRoute><AdminKitchen /></ProtectedAdminRoute>} />
             <Route path="/admin/tables" element={<ProtectedAdminRoute><AdminTables /></ProtectedAdminRoute>} />

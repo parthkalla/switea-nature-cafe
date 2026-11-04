@@ -353,6 +353,17 @@ export const api = {
     return res.json();
   },
 
+  async createAdminPosOrder(payload: any) {
+    const res = await fetch(`${API_BASE}/admin/pos/order`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to place POS order');
+    return data;
+  },
+
   async updateOrderStatus(id: string, status: string, rejectionReason?: string) {
     const res = await fetch(`${API_BASE}/admin/orders/${id}/status`, {
       method: 'PUT',

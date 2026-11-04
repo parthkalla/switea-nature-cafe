@@ -3,7 +3,9 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
 import { generateQRCodeDataUrl, generateQRCodeSVG, buildTableMenuUrl } from '../utils/qr';
-import { emitOrderStatusUpdated, emitDeliveryPartnerAssigned } from '../realtime/socket';
+import { emitOrderStatusUpdated, emitDeliveryPartnerAssigned, emitNewOrder } from '../realtime/socket';
+import { resolveItemType } from './publicController';
+import { sendLoyaltyWhatsApp } from '../services/whatsapp';
 import { pushMarketplaceStatus, Marketplace } from '../services/marketplace';
 import { pushActionToQueue } from './integrationController';
 
@@ -2027,5 +2029,424 @@ export async function batchUpdateMenuItemLoyalty(req: Request, res: Response) {
   } catch (err: any) {
     console.error('batchUpdateMenuItemLoyalty error:', err);
     return res.status(500).json({ error: 'Failed to batch update loyalty points.' });
+  }
+}
+
+// 15. Admin POS / Counter Order Creation
+function cleanPhoneVariants(phone: string) {
+  const raw = phone.trim();
+  const digits = raw.replace(/\D/g, '');
+  const ten = digits.length === 12 && digits.startsWith('91')
+    ? digits.slice(2)
+    : digits.length === 11 && digits.startsWith('0')
+      ? digits.slice(1)
+      : digits;
+  return Array.from(new Set([raw, ten, `+91${ten}`, `+91 ${ten.slice(0, 5)} ${ten.slice(5)}`].filter(Boolean)));
+}
+
+export async function createAdminPosOrder(req: Request, res: Response) {
+  try {
+    const restaurantId = getRestaurantId(req);
+    const {
+      orderType = 'DINE_IN',
+      tableId,
+      customerName,
+      customerPhone,
+      notes,
+      items,
+      paymentMethod = 'CASH',
+      paymentStatus = 'PAID',
+      status = 'ACCEPTED',
+      redeemFoodPoints = 0,
+      redeemCoffeePoints = 0,
+    } = req.body;
+
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found.' });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'At least one menu item is required to create a POS order.' });
+    }
+
+    // Resolve Table & Dining Session if Dine-In
+    let resolvedTableId: string | null = null;
+    let diningSessionId: string | null = null;
+
+    if (orderType === 'DINE_IN' && tableId) {
+      const table = await prisma.table.findFirst({
+        where: { id: tableId, restaurantId },
+      });
+      if (table) {
+        resolvedTableId = table.id;
+        let session = await prisma.diningSession.findFirst({
+          where: { tableId: table.id, status: 'ACTIVE' },
+        });
+        if (!session) {
+          session = await prisma.diningSession.create({
+            data: {
+              tableId: table.id,
+              sessionToken: `ses-${crypto.randomBytes(8).toString('hex')}`,
+              customerName: customerName ? String(customerName).trim() : null,
+              customerPhone: customerPhone ? String(customerPhone).trim() : null,
+            },
+          });
+        }
+        diningSessionId = session.id;
+      }
+    }
+
+    let subtotal = 0;
+    let foodSubtotal = 0;
+    let coffeeSubtotal = 0;
+    let itemSpecificFoodPoints = 0;
+    let itemSpecificCoffeePoints = 0;
+    let eligibleFoodSpend = 0;
+    let eligibleCoffeeSpend = 0;
+    const orderItemsData: any[] = [];
+
+    for (const input of items) {
+      const item = await prisma.menuItem.findFirst({
+        where: { id: input.menuItemId, restaurantId },
+        include: {
+          category: true,
+          variants: true,
+          modifierGroups: {
+            include: { options: true },
+          },
+        },
+      });
+
+      if (!item) {
+        return res.status(400).json({ error: `Menu item not found in catalog.` });
+      }
+
+      const itemType = resolveItemType(item, item.category);
+
+      let unitPrice = item.price;
+      let itemName = item.name;
+
+      if (input.variantId) {
+        const variant = item.variants.find((v) => v.id === input.variantId);
+        if (variant) {
+          unitPrice = variant.price;
+          itemName = `${item.name} (${variant.name})`;
+        }
+      }
+
+      let modifiersPrice = 0;
+      const itemModifiersData: any[] = [];
+
+      if (input.modifierOptionIds && Array.isArray(input.modifierOptionIds)) {
+        for (const group of item.modifierGroups) {
+          for (const opt of group.options) {
+            if (input.modifierOptionIds.includes(opt.id)) {
+              modifiersPrice += opt.price;
+              itemModifiersData.push({
+                modifierOptionId: opt.id,
+                modifierName: opt.name,
+                price: opt.price,
+              });
+            }
+          }
+        }
+      }
+
+      const quantity = Math.max(1, parseInt(String(input.quantity), 10) || 1);
+      const totalPrice = (unitPrice + modifiersPrice) * quantity;
+      subtotal += totalPrice;
+
+      if (itemType === 'COFFEE') {
+        coffeeSubtotal += totalPrice;
+      } else {
+        foodSubtotal += totalPrice;
+      }
+
+      const customPts = (item as any).loyaltyPoints || 0;
+      if (customPts > 0) {
+        if (itemType === 'COFFEE') {
+          itemSpecificCoffeePoints += customPts * quantity;
+        } else {
+          itemSpecificFoodPoints += customPts * quantity;
+        }
+      } else {
+        if (itemType === 'COFFEE') {
+          eligibleCoffeeSpend += totalPrice;
+        } else {
+          eligibleFoodSpend += totalPrice;
+        }
+      }
+
+      orderItemsData.push({
+        menuItemId: item.id,
+        itemName,
+        itemType,
+        unitPrice,
+        quantity,
+        totalPrice,
+        notes: input.notes ? String(input.notes).trim() : null,
+        modifiers: itemModifiersData,
+      });
+    }
+
+    // Customer Loyalty Points Handling
+    const cleanPhone = customerPhone && String(customerPhone).trim() ? String(customerPhone).trim() : null;
+    let loyaltyRecord: any = null;
+    let actualFoodRedeemed = 0;
+    let actualCoffeeRedeemed = 0;
+
+    if (cleanPhone) {
+      loyaltyRecord = await prisma.customerLoyalty.findFirst({
+        where: {
+          restaurantId: restaurant.id,
+          customerPhone: { in: cleanPhoneVariants(cleanPhone) },
+        },
+      });
+
+      if (!loyaltyRecord) {
+        loyaltyRecord = await prisma.customerLoyalty.create({
+          data: {
+            restaurantId: restaurant.id,
+            customerPhone: cleanPhone,
+            customerName: customerName ? String(customerName).trim() : null,
+          },
+        });
+      } else if (customerName && !loyaltyRecord.customerName) {
+        loyaltyRecord = await prisma.customerLoyalty.update({
+          where: { id: loyaltyRecord.id },
+          data: { customerName: String(customerName).trim() },
+        });
+      }
+
+      const minRedeemPoints = restaurant.loyaltyMinRedeemPoints || 0;
+      const totalWalletPoints = (loyaltyRecord.foodPoints || 0) + (loyaltyRecord.coffeePoints || 0);
+
+      const wantRedeem = (redeemFoodPoints && Number(redeemFoodPoints) > 0) || (redeemCoffeePoints && Number(redeemCoffeePoints) > 0);
+      if (wantRedeem && minRedeemPoints > 0 && totalWalletPoints < minRedeemPoints) {
+        return res.status(400).json({
+          error: `Minimum ${minRedeemPoints} points required in wallet to redeem (customer currently has ${totalWalletPoints} points).`,
+        });
+      }
+
+      const maxFoodRedeem = Math.min(loyaltyRecord.foodPoints, Math.floor(foodSubtotal));
+      const maxCoffeeRedeem = Math.min(loyaltyRecord.coffeePoints, Math.floor(coffeeSubtotal));
+
+      if (redeemFoodPoints && Number(redeemFoodPoints) > 0) {
+        actualFoodRedeemed = Math.min(Number(redeemFoodPoints), maxFoodRedeem);
+      }
+      if (redeemCoffeePoints && Number(redeemCoffeePoints) > 0) {
+        actualCoffeeRedeemed = Math.min(Number(redeemCoffeePoints), maxCoffeeRedeem);
+      }
+    }
+
+    const isLoyaltyActive = restaurant.isLoyaltyEnabled !== false;
+    const foodSpendRate = restaurant.loyaltyFoodSpendPerPoint || 10.0;
+    const coffeeSpendRate = restaurant.loyaltyCoffeeSpendPerPoint || 10.0;
+    const pointValue = restaurant.loyaltyPointValue || 1.0;
+    const minOrderAmt = restaurant.loyaltyMinOrderAmount || 0;
+    const perOrderBonus = restaurant.loyaltyPerOrderPoints || 0;
+
+    const loyaltyDiscount = Number(((actualFoodRedeemed + actualCoffeeRedeemed) * pointValue).toFixed(2));
+
+    let foodPointsEarned = 0;
+    let coffeePointsEarned = 0;
+
+    if (isLoyaltyActive) {
+      const spendFoodPoints = Math.floor(eligibleFoodSpend / foodSpendRate);
+      const spendCoffeePoints = Math.floor(eligibleCoffeeSpend / coffeeSpendRate);
+
+      foodPointsEarned = itemSpecificFoodPoints + spendFoodPoints;
+      coffeePointsEarned = itemSpecificCoffeePoints + spendCoffeePoints;
+
+      if (perOrderBonus > 0 && subtotal >= minOrderAmt) {
+        foodPointsEarned += perOrderBonus;
+      }
+    }
+
+    const discountedSubtotal = Math.max(0, subtotal - loyaltyDiscount);
+    const taxAmount = Number(((discountedSubtotal * restaurant.taxPercent) / 100).toFixed(2));
+    const totalAmount = Number((discountedSubtotal + taxAmount).toFixed(2));
+
+    const count = await prisma.order.count({ where: { restaurantId: restaurant.id } });
+    const orderNumber = `POS-${1001 + count}`;
+    const orderToken = `ord-pos-${crypto.randomBytes(12).toString('hex')}`;
+
+    const order = await prisma.order.create({
+      data: {
+        orderNumber,
+        orderToken,
+        restaurantId: restaurant.id,
+        tableId: resolvedTableId,
+        diningSessionId,
+        orderType,
+        source: 'POS',
+        customerName: customerName ? String(customerName).trim() : 'Walk-in Guest',
+        customerPhone: cleanPhone,
+        notes: notes ? String(notes).trim() : null,
+        subtotal,
+        discountAmount: 0,
+        foodPointsEarned,
+        coffeePointsEarned,
+        foodPointsRedeemed: actualFoodRedeemed,
+        coffeePointsRedeemed: actualCoffeeRedeemed,
+        loyaltyDiscount,
+        taxAmount,
+        totalAmount,
+        status: status || 'ACCEPTED',
+        paymentStatus: paymentStatus || 'PAID',
+        paymentMethod: paymentMethod || 'CASH',
+        items: {
+          create: orderItemsData.map((oi) => ({
+            menuItemId: oi.menuItemId,
+            itemName: oi.itemName,
+            itemType: oi.itemType,
+            unitPrice: oi.unitPrice,
+            quantity: oi.quantity,
+            totalPrice: oi.totalPrice,
+            notes: oi.notes,
+            modifiers: {
+              create: oi.modifiers.map((m: any) => ({
+                modifierOptionId: m.modifierOptionId,
+                modifierName: m.modifierName,
+                price: m.price,
+              })),
+            },
+          })),
+        },
+        payments: {
+          create: {
+            amount: totalAmount,
+            currency: restaurant.currency,
+            method: paymentMethod || 'CASH',
+            status: paymentStatus || 'PAID',
+          },
+        },
+      },
+      include: {
+        table: true,
+        items: {
+          include: {
+            modifiers: true,
+          },
+        },
+        payments: true,
+      },
+    });
+
+    // Update Loyalty Points & Transactions
+    let updatedLoyaltyRecord: any = null;
+    if (loyaltyRecord) {
+      updatedLoyaltyRecord = await prisma.customerLoyalty.update({
+        where: { id: loyaltyRecord.id },
+        data: {
+          foodPoints: {
+            increment: foodPointsEarned - actualFoodRedeemed,
+          },
+          coffeePoints: {
+            increment: coffeePointsEarned - actualCoffeeRedeemed,
+          },
+          lifetimeFoodPoints: {
+            increment: foodPointsEarned,
+          },
+          lifetimeCoffeePoints: {
+            increment: coffeePointsEarned,
+          },
+        },
+      });
+
+      if (actualFoodRedeemed > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'FOOD',
+            points: -actualFoodRedeemed,
+            reason: 'POS_ORDER_REDEEMED',
+            description: `Redeemed ${actualFoodRedeemed} Food points at POS for Order #${orderNumber}`,
+          },
+        });
+      }
+
+      if (actualCoffeeRedeemed > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'COFFEE',
+            points: -actualCoffeeRedeemed,
+            reason: 'POS_ORDER_REDEEMED',
+            description: `Redeemed ${actualCoffeeRedeemed} Coffee points at POS for Order #${orderNumber}`,
+          },
+        });
+      }
+
+      if (foodPointsEarned > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'FOOD',
+            points: foodPointsEarned,
+            reason: 'POS_ORDER_EARNED',
+            description: `Earned ${foodPointsEarned} Food points from POS Order #${orderNumber}`,
+          },
+        });
+      }
+
+      if (coffeePointsEarned > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: {
+            customerLoyaltyId: loyaltyRecord.id,
+            orderId: order.id,
+            pointsType: 'COFFEE',
+            points: coffeePointsEarned,
+            reason: 'POS_ORDER_EARNED',
+            description: `Earned ${coffeePointsEarned} Coffee points from POS Order #${orderNumber}`,
+          },
+        });
+      }
+    }
+
+    // Trigger WhatsApp receipt if configured
+    if (cleanPhone) {
+      void sendLoyaltyWhatsApp({
+        phone: cleanPhone,
+        customerName: order.customerName,
+        orderNumber: order.orderNumber,
+        orderToken: order.orderToken,
+        foodPointsEarned,
+        coffeePointsEarned,
+        foodPointsBalance: updatedLoyaltyRecord?.foodPoints || 0,
+        coffeePointsBalance: updatedLoyaltyRecord?.coffeePoints || 0,
+      });
+    }
+
+    // Realtime broadcast to kitchen and admin staff
+    emitNewOrder(restaurant.id, {
+      ...order,
+      createdAt: order.createdAt.toISOString(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      order,
+      loyalty: {
+        foodPointsEarned,
+        coffeePointsEarned,
+        foodPointsRedeemed: actualFoodRedeemed,
+        coffeePointsRedeemed: actualCoffeeRedeemed,
+        customerBalance: updatedLoyaltyRecord ? {
+          foodPoints: updatedLoyaltyRecord.foodPoints,
+          coffeePoints: updatedLoyaltyRecord.coffeePoints,
+        } : null,
+      },
+    });
+  } catch (err: any) {
+    console.error('createAdminPosOrder error:', err);
+    return res.status(500).json({ error: 'Failed to create POS order.' });
   }
 }

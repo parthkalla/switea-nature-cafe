@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ShoppingBag,
   Clock,
@@ -15,6 +16,7 @@ import {
   UserRound,
   FileText,
   MapPin,
+  Receipt,
 } from 'lucide-react';
 import { AdminLayout } from '../../components/layout/AdminLayout';
 import { api } from '../../services/api';
@@ -200,6 +202,14 @@ export const AdminOrders: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              to="/admin/pos"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-nature-900 hover:bg-nature-950 text-white rounded-xl text-xs font-bold shadow transition-colors"
+            >
+              <Receipt className="w-4 h-4 text-amber-300" />
+              <span>+ Walk-In / POS Order</span>
+            </Link>
+
             <button
               onClick={handleToggleAlerts}
               className={`p-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold ${

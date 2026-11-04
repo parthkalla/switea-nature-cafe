@@ -29,6 +29,7 @@ import {
   getOrders,
   updateOrderStatus,
   updateOrderPaymentStatus,
+  createAdminPosOrder,
   getMarketplaceConnections,
   saveMarketplaceConnection,
   getKitchenQueue,
@@ -108,8 +109,9 @@ router.post('/tables/:id/free', freeTable);
 router.post('/tables/:id/regenerate-qr', regenerateTableQRToken);
 router.delete('/tables/:id', deleteTable);
 
-// Orders
+// Orders & POS
 router.get('/orders', getOrders);
+router.post('/pos/order', createAdminPosOrder);
 router.put('/orders/:id/status', updateOrderStatus);
 router.put('/orders/:id/payment', updateOrderPaymentStatus);
 
