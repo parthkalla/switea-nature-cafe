@@ -82,6 +82,9 @@ export const AdminPOS: React.FC = () => {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Demo / Test Mode Switch (Zero revenue / no stats pollution)
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
   // Success Modal
   const [placedOrder, setPlacedOrder] = useState<any>(null);
 
@@ -270,6 +273,7 @@ export const AdminPOS: React.FC = () => {
         status: 'ACCEPTED',
         redeemFoodPoints: actualFoodRedeemed,
         redeemCoffeePoints: actualCoffeeRedeemed,
+        isDemo: isDemoMode,
         items: cart.map((i) => ({
           menuItemId: i.menuItemId,
           variantId: i.variantId,
@@ -296,24 +300,70 @@ export const AdminPOS: React.FC = () => {
     }
   };
 
-  // Filtered menu items
+  // Filtered menu items - Sorted alphabetically A to Z
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      if (selectedCategory !== 'ALL' && item.categoryId !== selectedCategory) {
-        return false;
-      }
-      if (vegOnly && !item.isVeg) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchName = item.name.toLowerCase().includes(q);
-        const matchDesc = item.description?.toLowerCase().includes(q);
-        if (!matchName && !matchDesc) return false;
-      }
-      return true;
-    });
+    return items
+      .filter((item) => {
+        if (selectedCategory !== 'ALL' && item.categoryId !== selectedCategory) {
+          return false;
+        }
+        if (vegOnly && !item.isVeg) {
+          return false;
+        }
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchName = item.name.toLowerCase().includes(q);
+          const matchDesc = item.description?.toLowerCase().includes(q);
+          if (!matchName && !matchDesc) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }, [items, selectedCategory, vegOnly, searchQuery]);
+
+  // Group items by category (each category's items sorted A to Z)
+  const groupedItemsByCategory = useMemo(() => {
+    if (selectedCategory !== 'ALL') {
+      const currentCat = categories.find((c) => c.id === selectedCategory);
+      return [
+        {
+          category: currentCat || { id: selectedCategory, name: 'Selected Category' },
+          items: filteredItems,
+        },
+      ];
+    }
+
+    const groups: { category: MenuCategory | { id: string; name: string }; items: MenuItem[] }[] = [];
+    const catMap = new Map<string, MenuItem[]>();
+
+    for (const it of filteredItems) {
+      const catId = it.categoryId || 'uncategorized';
+      if (!catMap.has(catId)) {
+        catMap.set(catId, []);
+      }
+      catMap.get(catId)!.push(it);
+    }
+
+    for (const cat of categories) {
+      const catItems = catMap.get(cat.id);
+      if (catItems && catItems.length > 0) {
+        groups.push({
+          category: cat,
+          items: catItems,
+        });
+      }
+    }
+
+    const uncat = catMap.get('uncategorized');
+    if (uncat && uncat.length > 0) {
+      groups.push({
+        category: { id: 'uncategorized', name: 'Other Delicacies' },
+        items: uncat,
+      });
+    }
+
+    return groups;
+  }, [categories, filteredItems, selectedCategory]);
 
   return (
     <AdminLayout>
@@ -340,6 +390,20 @@ export const AdminPOS: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDemoMode(!isDemoMode)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                    isDemoMode
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                  }`}
+                  title="Demo orders will NOT pollute your real revenue, sales or stats"
+                >
+                  <span className={`w-2 h-2 rounded-full ${isDemoMode ? 'bg-amber-300 animate-ping' : 'bg-stone-400'}`} />
+                  <span>{isDemoMode ? '🧪 Demo Mode: ON' : 'Demo Mode: OFF'}</span>
+                </button>
+
                 <Link
                   to="/admin/orders"
                   className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold transition-colors"
@@ -430,76 +494,96 @@ export const AdminPOS: React.FC = () => {
                 <p className="text-xs text-stone-400 mt-0.5">Try searching for something else or clearing filters.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                {filteredItems.map((item) => {
-                  const itemType = (item as any).itemType === 'COFFEE' || item.category?.itemType === 'COFFEE' ? 'COFFEE' : 'FOOD';
-                  const inCartCount = cart
-                    .filter((c) => c.menuItemId === item.id)
-                    .reduce((acc, c) => acc + c.quantity, 0);
-
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleAddItem(item)}
-                      className={`text-left p-3 rounded-2xl border transition-all relative flex flex-col justify-between group hover:shadow-md hover:border-amber-400 ${
-                        inCartCount > 0 ? 'bg-amber-50/40 border-amber-300 ring-1 ring-amber-300' : 'bg-white border-stone-200'
-                      }`}
-                    >
-                      {/* In-Cart Badge */}
-                      {inCartCount > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-amber-600 text-white font-extrabold text-[11px] flex items-center justify-center shadow-sm">
-                          {inCartCount}
-                        </span>
-                      )}
-
-                      <div>
-                        {/* Image or Category placeholder */}
-                        <div className="w-full h-24 rounded-xl bg-stone-100 overflow-hidden mb-2 relative">
-                          {item.image ? (
-                            <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-stone-400">
-                              {itemType === 'COFFEE' ? <Coffee className="w-8 h-8 opacity-40" /> : <UtensilsCrossed className="w-8 h-8 opacity-40" />}
-                            </div>
-                          )}
-
-                          {/* Veg/Nonveg indicator */}
-                          <div className="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur-xs p-1 rounded-md">
-                            <span className={`block w-2 h-2 rounded-full ${item.isVeg ? 'bg-emerald-600' : 'bg-red-600'}`} />
-                          </div>
-
-                          {/* Custom Loyalty Points Tag */}
-                          {((item as any).loyaltyPoints || 0) > 0 && (
-                            <div className="absolute bottom-1.5 right-1.5 bg-purple-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-xs">
-                              <Gift className="w-2.5 h-2.5 text-purple-200" />
-                              <span>+{(item as any).loyaltyPoints} pts</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <h3 className="font-serif font-bold text-xs text-stone-900 line-clamp-1 group-hover:text-amber-900">
-                          {item.name}
-                        </h3>
-                        <span className="text-[10px] text-stone-400 block line-clamp-1">
-                          {item.category?.name || 'Cafe Special'}
-                        </span>
+              <div className="space-y-6">
+                {groupedItemsByCategory.map((group) => (
+                  <div key={group.category.id} className="space-y-2.5">
+                    {/* Category Title & A-Z Sorted Pill */}
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-1.5 pt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <h2 className="font-serif font-bold text-sm text-stone-800">
+                          {group.category.name}
+                        </h2>
                       </div>
+                      <span className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider bg-stone-50 px-2 py-0.5 rounded-full border border-stone-200">
+                        A-Z Sorted • {group.items.length} dishes
+                      </span>
+                    </div>
 
-                      <div className="mt-2 pt-2 border-t border-stone-100 flex items-center justify-between">
-                        <span className="font-serif font-extrabold text-xs text-stone-900">
-                          ₹{item.price}
-                          {item.variants && item.variants.length > 0 && (
-                            <span className="text-[10px] font-sans font-normal text-stone-400 ml-1">options</span>
-                          )}
-                        </span>
+                    {/* Items Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {group.items.map((item) => {
+                        const itemType = (item as any).itemType === 'COFFEE' || item.category?.itemType === 'COFFEE' ? 'COFFEE' : 'FOOD';
+                        const inCartCount = cart
+                          .filter((c) => c.menuItemId === item.id)
+                          .reduce((acc, c) => acc + c.quantity, 0);
 
-                        <span className="p-1 rounded-lg bg-stone-100 group-hover:bg-amber-600 group-hover:text-white text-stone-600 transition-colors">
-                          <Plus className="w-3.5 h-3.5" />
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleAddItem(item)}
+                            className={`text-left p-3 rounded-2xl border transition-all relative flex flex-col justify-between group hover:shadow-md hover:border-amber-400 ${
+                              inCartCount > 0 ? 'bg-amber-50/40 border-amber-300 ring-1 ring-amber-300' : 'bg-white border-stone-200'
+                            }`}
+                          >
+                            {/* In-Cart Badge */}
+                            {inCartCount > 0 && (
+                              <span className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-amber-600 text-white font-extrabold text-[11px] flex items-center justify-center shadow-sm">
+                                {inCartCount}
+                              </span>
+                            )}
+
+                            <div>
+                              {/* Image or Category placeholder */}
+                              <div className="w-full h-24 rounded-xl bg-stone-100 overflow-hidden mb-2 relative">
+                                {item.image ? (
+                                  <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                    {itemType === 'COFFEE' ? <Coffee className="w-8 h-8 opacity-40" /> : <UtensilsCrossed className="w-8 h-8 opacity-40" />}
+                                  </div>
+                                )}
+
+                                {/* Veg/Nonveg indicator */}
+                                <div className="absolute top-1.5 left-1.5 bg-white/90 backdrop-blur-xs p-1 rounded-md">
+                                  <span className={`block w-2 h-2 rounded-full ${item.isVeg ? 'bg-emerald-600' : 'bg-red-600'}`} />
+                                </div>
+
+                                {/* Custom Loyalty Points Tag */}
+                                {((item as any).loyaltyPoints || 0) > 0 && (
+                                  <div className="absolute bottom-1.5 right-1.5 bg-purple-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-xs">
+                                    <Gift className="w-2.5 h-2.5 text-purple-200" />
+                                    <span>+{(item as any).loyaltyPoints} pts</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <h3 className="font-serif font-bold text-xs text-stone-900 line-clamp-1 group-hover:text-amber-900">
+                                {item.name}
+                              </h3>
+                              <span className="text-[10px] text-stone-400 block line-clamp-1">
+                                {item.category?.name || 'Cafe Special'}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-stone-100 flex items-center justify-between">
+                              <span className="font-serif font-extrabold text-xs text-stone-900">
+                                ₹{item.price}
+                                {item.variants && item.variants.length > 0 && (
+                                  <span className="text-[10px] font-sans font-normal text-stone-400 ml-1">options</span>
+                                )}
+                              </span>
+
+                              <span className="p-1 rounded-lg bg-stone-100 group-hover:bg-amber-600 group-hover:text-white text-stone-600 transition-colors">
+                                <Plus className="w-3.5 h-3.5" />
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

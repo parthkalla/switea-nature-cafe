@@ -2111,6 +2111,7 @@ export async function createAdminPosOrder(req: Request, res: Response) {
       status = 'ACCEPTED',
       redeemFoodPoints = 0,
       redeemCoffeePoints = 0,
+      isDemo = false,
     } = req.body;
 
     const restaurant = await prisma.restaurant.findUnique({
@@ -2324,7 +2325,8 @@ export async function createAdminPosOrder(req: Request, res: Response) {
     const totalAmount = Number((discountedSubtotal + taxAmount).toFixed(2));
 
     const count = await prisma.order.count({ where: { restaurantId: restaurant.id } });
-    const orderNumber = `POS-${1001 + count}`;
+    const isDemoOrder = Boolean(isDemo);
+    const orderNumber = isDemoOrder ? `TEST-${1001 + count}` : `POS-${1001 + count}`;
     const orderToken = `ord-pos-${crypto.randomBytes(12).toString('hex')}`;
 
     const order = await prisma.order.create({
@@ -2336,15 +2338,16 @@ export async function createAdminPosOrder(req: Request, res: Response) {
         diningSessionId,
         orderType,
         source: 'POS',
-        customerName: customerName ? String(customerName).trim() : 'Walk-in Guest',
+        isDemo: isDemoOrder,
+        customerName: customerName ? String(customerName).trim() : (isDemoOrder ? 'Test Demo Guest' : 'Walk-in Guest'),
         customerPhone: cleanPhone,
         notes: notes ? String(notes).trim() : null,
         subtotal,
         discountAmount: 0,
-        foodPointsEarned,
-        coffeePointsEarned,
-        foodPointsRedeemed: actualFoodRedeemed,
-        coffeePointsRedeemed: actualCoffeeRedeemed,
+        foodPointsEarned: isDemoOrder ? 0 : foodPointsEarned,
+        coffeePointsEarned: isDemoOrder ? 0 : coffeePointsEarned,
+        foodPointsRedeemed: isDemoOrder ? 0 : actualFoodRedeemed,
+        coffeePointsRedeemed: isDemoOrder ? 0 : actualCoffeeRedeemed,
         loyaltyDiscount,
         taxAmount,
         totalAmount,
@@ -2389,9 +2392,9 @@ export async function createAdminPosOrder(req: Request, res: Response) {
       },
     });
 
-    // Update Loyalty Points & Transactions
+    // Update Loyalty Points & Transactions (only for real orders)
     let updatedLoyaltyRecord: any = null;
-    if (loyaltyRecord) {
+    if (!isDemoOrder && loyaltyRecord) {
       updatedLoyaltyRecord = await prisma.customerLoyalty.update({
         where: { id: loyaltyRecord.id },
         data: {
