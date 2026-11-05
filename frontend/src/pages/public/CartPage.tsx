@@ -326,9 +326,13 @@ export const CartPage: React.FC = () => {
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                     <span>Points to earn on this tray:</span>
                   </span>
-                  <div className="flex justify-between text-[11px] text-stone-600 pt-0.5">
-                    <span>🍔 Food Loyalty: <strong className="text-emerald-800">+{calculation.potentialFoodPoints} Pts</strong></span>
-                    <span>☕ Coffee Loyalty: <strong className="text-amber-800">+{calculation.potentialCoffeePoints} Pts</strong></span>
+                  <div className="flex flex-col sm:flex-row sm:justify-between text-[11px] text-stone-600 pt-0.5 gap-1">
+                    {calculation.potentialFoodPoints > 0 && (
+                      <span>🍔 Food Points: <strong className="text-emerald-800">+{calculation.potentialFoodPoints} Pts</strong></span>
+                    )}
+                    {calculation.potentialCoffeePoints > 0 && (
+                      <span>☕ Coffee Rewards ({calculation.coffeeEarnPercent || 15}%): <strong className="text-amber-800">+{calculation.potentialCoffeePoints} Pts</strong></span>
+                    )}
                   </div>
                 </div>
               )}

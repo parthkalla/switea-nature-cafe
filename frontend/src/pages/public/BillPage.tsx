@@ -486,7 +486,11 @@ export const BillPage: React.FC = () => {
                     Loyalty Points Rewarded on this Bill
                   </span>
                   <span className="text-[11px] text-stone-500">
-                    Dual Rewards: 🍔 +{order.foodPointsEarned || 0} Food Pts &nbsp;|&nbsp; ☕ +{order.coffeePointsEarned || 0} Coffee Pts
+                    {order.foodPointsEarned && order.foodPointsEarned > 0 ? (
+                      <>Dual Rewards: 🍔 +{order.foodPointsEarned} Food Pts &nbsp;|&nbsp; ☕ +{order.coffeePointsEarned || 0} Coffee Pts</>
+                    ) : (
+                      <>Coffee Rewards: ☕ +{order.coffeePointsEarned || 0} Coffee Pts</>
+                    )}
                   </span>
                 </div>
               </div>

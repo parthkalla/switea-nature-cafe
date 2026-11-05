@@ -34,6 +34,8 @@ export const AdminLoyalty: React.FC = () => {
   const [loyaltyPerOrderPoints, setLoyaltyPerOrderPoints] = useState<number | string>(0);
   const [loyaltyFoodSpendPerPoint, setLoyaltyFoodSpendPerPoint] = useState<number | string>(10);
   const [loyaltyCoffeeSpendPerPoint, setLoyaltyCoffeeSpendPerPoint] = useState<number | string>(10);
+  const [loyaltyFoodPercent, setLoyaltyFoodPercent] = useState<number | string>(0);
+  const [loyaltyCoffeePercent, setLoyaltyCoffeePercent] = useState<number | string>(15);
   const [loyaltyPointValue, setLoyaltyPointValue] = useState<number | string>(1.0);
   const [loyaltyMinOrderAmount, setLoyaltyMinOrderAmount] = useState<number | string>(0);
   const [loyaltyMinRedeemPoints, setLoyaltyMinRedeemPoints] = useState<number | string>(0);
@@ -80,6 +82,8 @@ export const AdminLoyalty: React.FC = () => {
         setLoyaltyPerOrderPoints(s.loyaltyPerOrderPoints || 0);
         setLoyaltyFoodSpendPerPoint(s.loyaltyFoodSpendPerPoint || 10);
         setLoyaltyCoffeeSpendPerPoint(s.loyaltyCoffeeSpendPerPoint || 10);
+        setLoyaltyFoodPercent(s.loyaltyFoodPercent !== undefined ? s.loyaltyFoodPercent : 0);
+        setLoyaltyCoffeePercent(s.loyaltyCoffeePercent !== undefined ? s.loyaltyCoffeePercent : 15);
         setLoyaltyPointValue(s.loyaltyPointValue || 1.0);
         setLoyaltyMinOrderAmount(s.loyaltyMinOrderAmount || 0);
         setLoyaltyMinRedeemPoints(s.loyaltyMinRedeemPoints || 0);
@@ -121,6 +125,8 @@ export const AdminLoyalty: React.FC = () => {
         loyaltyPerOrderPoints: Number(loyaltyPerOrderPoints),
         loyaltyFoodSpendPerPoint: Number(loyaltyFoodSpendPerPoint),
         loyaltyCoffeeSpendPerPoint: Number(loyaltyCoffeeSpendPerPoint),
+        loyaltyFoodPercent: Number(loyaltyFoodPercent),
+        loyaltyCoffeePercent: Number(loyaltyCoffeePercent),
         loyaltyPointValue: Number(loyaltyPointValue),
         loyaltyMinOrderAmount: Number(loyaltyMinOrderAmount),
         loyaltyMinRedeemPoints: Number(loyaltyMinRedeemPoints),
@@ -400,69 +406,71 @@ export const AdminLoyalty: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Food Category Spend Rate */}
+            {/* 2. Food Category Spend Rate (%) */}
             <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-emerald-950 flex items-center gap-1.5 uppercase tracking-wider">
                   <UtensilsCrossed className="w-4 h-4 text-emerald-700" />
-                  <span>Food Earn Rate (₹ / pt)</span>
+                  <span>Food Earn Rate (%)</span>
                 </label>
-                <span className="text-[11px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full">
-                  Food Category
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${Number(loyaltyFoodPercent) === 0 ? 'bg-stone-200 text-stone-700' : 'bg-emerald-200/80 text-emerald-900'}`}>
+                  {Number(loyaltyFoodPercent) === 0 ? 'Disabled (0%)' : `${loyaltyFoodPercent}% Cashback`}
                 </span>
               </div>
               <p className="text-[11px] text-emerald-900/80">
-                Rupees spent on Food items to earn 1 Food Loyalty Point (e.g. ₹10 spent = 1 pt).
+                Percentage of food spend awarded as Food Points. Set to <strong>0%</strong> to disable food points for RoastFuze.
               </p>
               <div className="relative pt-1">
                 <input
                   type="number"
-                  min={1}
+                  min={0}
+                  max={100}
                   step={1}
-                  value={loyaltyFoodSpendPerPoint}
-                  onChange={(e) => setLoyaltyFoodSpendPerPoint(e.target.value)}
+                  value={loyaltyFoodPercent}
+                  onChange={(e) => setLoyaltyFoodPercent(e.target.value)}
                   onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
-                    if (loyaltyFoodSpendPerPoint === '' || Number(loyaltyFoodSpendPerPoint) < 1) {
-                      setLoyaltyFoodSpendPerPoint(10);
+                    if (loyaltyFoodPercent === '' || isNaN(Number(loyaltyFoodPercent))) {
+                      setLoyaltyFoodPercent(0);
                     }
                   }}
-                  className="w-full pl-3.5 pr-32 py-2.5 rounded-xl border border-emerald-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-full pl-3.5 pr-28 py-2.5 rounded-xl border border-emerald-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">₹ spent = 1 pt</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">% of food bill</span>
               </div>
             </div>
 
-            {/* 3. Coffee & Beverage Spend Rate */}
+            {/* 3. Coffee & Beverage Spend Rate (%) */}
             <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-300/80 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5 uppercase tracking-wider">
                   <Coffee className="w-4 h-4 text-amber-800" />
-                  <span>Coffee & Drinks Rate (₹ / pt)</span>
+                  <span>Coffee & Drinks Rate (%)</span>
                 </label>
                 <span className="text-[11px] font-bold bg-amber-300/80 text-amber-950 px-2 py-0.5 rounded-full">
-                  Coffee & Drinks
+                  Default 15%
                 </span>
               </div>
               <p className="text-[11px] text-amber-900/80">
-                Rupees spent on Coffee & Drinks to earn 1 Coffee Point (e.g. ₹10 spent = 1 pt).
+                Percentage of coffee & beverage bill awarded as Coffee Points (e.g. 15% awards 18 pts on ₹120 coffee).
               </p>
               <div className="relative pt-1">
                 <input
                   type="number"
-                  min={1}
+                  min={0}
+                  max={100}
                   step={1}
-                  value={loyaltyCoffeeSpendPerPoint}
-                  onChange={(e) => setLoyaltyCoffeeSpendPerPoint(e.target.value)}
+                  value={loyaltyCoffeePercent}
+                  onChange={(e) => setLoyaltyCoffeePercent(e.target.value)}
                   onFocus={(e) => { if (e.target.value === '0') e.target.select(); }}
                   onBlur={() => {
-                    if (loyaltyCoffeeSpendPerPoint === '' || Number(loyaltyCoffeeSpendPerPoint) < 1) {
-                      setLoyaltyCoffeeSpendPerPoint(10);
+                    if (loyaltyCoffeePercent === '' || isNaN(Number(loyaltyCoffeePercent))) {
+                      setLoyaltyCoffeePercent(15);
                     }
                   }}
                   className="w-full pl-3.5 pr-32 py-2.5 rounded-xl border border-amber-300 bg-white font-bold text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">₹ spent = 1 pt</span>
+                <span className="absolute right-3.5 top-3.5 text-xs text-stone-400 font-semibold pointer-events-none select-none">% of coffee bill</span>
               </div>
             </div>
           </div>
@@ -576,7 +584,11 @@ export const AdminLoyalty: React.FC = () => {
                 How Loyalty Points are Awarded & Redeemed:
               </p>
               <p className="text-stone-600 leading-relaxed">
-                When a customer orders: Items with <strong className="text-purple-800">individual points</strong> award that exact amount per unit. All other items earn <strong className="text-emerald-800">1 Food Point per ₹{loyaltyFoodSpendPerPoint}</strong> and <strong className="text-amber-800">1 Coffee Point per ₹{loyaltyCoffeeSpendPerPoint}</strong>. Plus, orders qualifying for min ₹{loyaltyMinOrderAmount} receive <strong className="text-amber-800">+{loyaltyPerOrderPoints} bonus points</strong> automatically!
+                When a customer orders: Coffee & Drinks earn <strong className="text-amber-800">{loyaltyCoffeePercent}% points</strong> (e.g. ₹100 spent = {loyaltyCoffeePercent} pts worth ₹{((Number(loyaltyCoffeePercent) * Number(loyaltyPointValue))).toFixed(0)} coffee discount). {Number(loyaltyFoodPercent) > 0 ? (
+                  <>Food items earn <strong className="text-emerald-800">{loyaltyFoodPercent}% points</strong>.</>
+                ) : (
+                  <strong className="text-stone-700">Food points are turned OFF (0%) — customers will not see any food points during checkout.</strong>
+                )} Plus, orders qualifying for min ₹{loyaltyMinOrderAmount} receive <strong className="text-amber-800">+{loyaltyPerOrderPoints} bonus points</strong> automatically!
               </p>
               {Number(loyaltyMinRedeemPoints) > 0 ? (
                 <p className="text-purple-900 font-medium">

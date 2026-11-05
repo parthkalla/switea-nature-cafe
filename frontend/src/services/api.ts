@@ -527,6 +527,8 @@ export const api = {
     loyaltyPerOrderPoints?: number;
     loyaltyFoodSpendPerPoint?: number;
     loyaltyCoffeeSpendPerPoint?: number;
+    loyaltyFoodPercent?: number;
+    loyaltyCoffeePercent?: number;
     loyaltyPointValue?: number;
     loyaltyMinOrderAmount?: number;
     loyaltyMinRedeemPoints?: number;

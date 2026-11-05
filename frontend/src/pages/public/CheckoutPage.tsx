@@ -225,11 +225,16 @@ export const CheckoutPage: React.FC = () => {
   const finalSubtotal = calculation?.subtotal ?? subtotal;
   const foodSubtotal = calculation?.foodSubtotal ?? 0;
   const coffeeSubtotal = calculation?.coffeeSubtotal ?? 0;
-  const foodPointsEarned = calculation?.potentialFoodPoints ?? Math.floor(foodSubtotal / 10);
-  const coffeePointsEarned = calculation?.potentialCoffeePoints ?? Math.floor(coffeeSubtotal / 10);
+  const foodEarnPercent = calculation?.foodEarnPercent ?? (tenantRestaurant as any)?.loyaltyFoodPercent ?? 0;
+  const coffeeEarnPercent = calculation?.coffeeEarnPercent ?? (tenantRestaurant as any)?.loyaltyCoffeePercent ?? 15;
+  const foodPointsEarned = calculation?.potentialFoodPoints ?? (foodEarnPercent > 0 ? Math.floor((foodSubtotal * foodEarnPercent) / 100) : 0);
+  const coffeePointsEarned = calculation?.potentialCoffeePoints ?? Math.floor((coffeeSubtotal * coffeeEarnPercent) / 100);
   const availableFood = calculation?.availableFoodPoints ?? 0;
   const availableCoffee = calculation?.availableCoffeePoints ?? 0;
+  const isFoodLoyaltyVisible = foodEarnPercent > 0 || foodPointsEarned > 0 || availableFood > 0;
   const loyaltyDiscount = calculation?.loyaltyDiscount ?? 0;
+  const coffeeDiscount = calculation?.coffeeDiscount ?? Number(((calculation?.coffeePointsRedeemed || (useCoffeePoints ? redeemCoffeePoints : 0)) * pointValueRate).toFixed(2));
+  const foodDiscount = calculation?.foodDiscount ?? Number(((calculation?.foodPointsRedeemed || (useFoodPoints ? redeemFoodPoints : 0)) * pointValueRate).toFixed(2));
   const couponDiscount = calculation?.discountAmount ?? 0;
   const taxAmount = calculation?.taxAmount ?? Number(((finalSubtotal * 0.05)).toFixed(2));
   const grandTotal = calculation?.totalAmount ?? Number(((finalSubtotal + taxAmount)).toFixed(2));
@@ -572,9 +577,13 @@ export const CheckoutPage: React.FC = () => {
                     <Gift className="w-4 h-4 text-amber-700" />
                   </div>
                   <div>
-                    <h2 className="font-serif font-bold text-base text-stone-900">{cafeName} Dual Loyalty Club</h2>
+                    <h2 className="font-serif font-bold text-base text-stone-900">
+                      {isFoodLoyaltyVisible ? `${cafeName} Dual Loyalty Club` : `${cafeName} Coffee Rewards Club`}
+                    </h2>
                     <p className="text-[11px] text-stone-500">
-                      Food points alag 🍔 aur coffee & beverage points alag ☕
+                      {isFoodLoyaltyVisible
+                        ? `Food points (${foodEarnPercent}%) aur coffee points (${coffeeEarnPercent}%) alag alag earn hote hain`
+                        : `Har coffee & beverage order par payein ${coffeeEarnPercent}% Cashback Points ☕`}
                     </p>
                   </div>
                 </div>
@@ -584,24 +593,26 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               {/* Points to be earned preview */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-white/90 rounded-2xl border border-emerald-200 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm">
-                    🍔
+              <div className={`grid ${isFoodLoyaltyVisible ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
+                {isFoodLoyaltyVisible && (
+                  <div className="p-3 bg-white/90 rounded-2xl border border-emerald-200 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm">
+                      🍔
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-stone-500 block">Food Points Earned</span>
+                      <span className="text-sm font-extrabold text-emerald-900">+{foodPointsEarned} Pts</span>
+                      <span className="text-[10px] text-stone-400 block">On ₹{foodSubtotal.toFixed(0)} food</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[11px] text-stone-500 block">Food Points Earned</span>
-                    <span className="text-sm font-extrabold text-emerald-900">+{foodPointsEarned} Pts</span>
-                    <span className="text-[10px] text-stone-400 block">On ₹{foodSubtotal.toFixed(0)} food</span>
-                  </div>
-                </div>
+                )}
 
                 <div className="p-3 bg-white/90 rounded-2xl border border-amber-200 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
                     ☕
                   </div>
                   <div>
-                    <span className="text-[11px] text-stone-500 block">Coffee Points Earned</span>
+                    <span className="text-[11px] text-stone-500 block">Coffee Rewards ({coffeeEarnPercent}%)</span>
                     <span className="text-sm font-extrabold text-amber-900">+{coffeePointsEarned} Pts</span>
                     <span className="text-[10px] text-stone-400 block">On ₹{coffeeSubtotal.toFixed(0)} coffee</span>
                   </div>
@@ -641,47 +652,49 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Food Points Redemption */}
-                  <div className={`p-4 rounded-2xl border transition-all ${
-                    useFoodPoints ? 'bg-emerald-50/70 border-emerald-400 ring-1 ring-emerald-400' : 'bg-white border-stone-200'
-                  }`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
-                          id="redeemFoodCheck"
-                          checked={useFoodPoints}
-                          disabled={
-                            (minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints) ||
-                            availableFood === 0 ||
-                            foodSubtotal === 0
-                          }
-                          onChange={(e) => setUseFoodPoints(e.target.checked)}
-                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-40"
-                        />
-                        <label htmlFor="redeemFoodCheck" className="text-xs cursor-pointer select-none">
-                          <span className="font-bold text-stone-900 block">
-                            🍔 Redeem Food Points (Balance: {availableFood} Pts)
-                          </span>
-                          <span className="text-stone-500 text-[11px] block">
-                            {minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints
-                              ? `Locked: Need ${minRedeemPoints} total wallet points to redeem`
-                              : foodSubtotal === 0
-                              ? 'No food items in cart to apply food points to'
-                              : availableFood > 0
-                              ? `Save up to ₹${(Math.min(availableFood, Math.floor(foodSubtotal)) * pointValueRate).toFixed(0)} off food items`
-                              : 'No food points available yet'}
-                          </span>
-                        </label>
-                      </div>
+                  {/* Food Points Redemption - only visible if user has food points */}
+                  {availableFood > 0 && (
+                    <div className={`p-4 rounded-2xl border transition-all ${
+                      useFoodPoints ? 'bg-emerald-50/70 border-emerald-400 ring-1 ring-emerald-400' : 'bg-white border-stone-200'
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            id="redeemFoodCheck"
+                            checked={useFoodPoints}
+                            disabled={
+                              (minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints) ||
+                              availableFood === 0 ||
+                              foodSubtotal === 0
+                            }
+                            onChange={(e) => setUseFoodPoints(e.target.checked)}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-40"
+                          />
+                          <label htmlFor="redeemFoodCheck" className="text-xs cursor-pointer select-none">
+                            <span className="font-bold text-stone-900 block">
+                              🍔 Redeem Food Points (Balance: {availableFood} Pts)
+                            </span>
+                            <span className="text-stone-500 text-[11px] block">
+                              {minRedeemPoints > 0 && (availableFood + availableCoffee) < minRedeemPoints
+                                ? `Locked: Need ${minRedeemPoints} total wallet points to redeem`
+                                : foodSubtotal === 0
+                                ? 'No food items in cart to apply food points to'
+                                : availableFood > 0
+                                ? `Save up to ₹${(Math.min(availableFood, Math.floor(foodSubtotal)) * pointValueRate).toFixed(0)} off food items`
+                                : 'No food points available yet'}
+                            </span>
+                          </label>
+                        </div>
 
-                      {useFoodPoints && calculation && calculation.foodPointsRedeemed > 0 && (
-                        <span className="text-xs font-extrabold text-emerald-800 whitespace-nowrap bg-emerald-100 px-2.5 py-1 rounded-lg">
-                          -₹{(calculation.foodPointsRedeemed * pointValueRate).toFixed(2)}
-                        </span>
-                      )}
+                        {useFoodPoints && foodDiscount > 0 && (
+                          <span className="text-xs font-extrabold text-emerald-800 whitespace-nowrap bg-emerald-100 px-2.5 py-1 rounded-lg">
+                            -₹{foodDiscount.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Coffee Points Redemption */}
                   <div className={`p-4 rounded-2xl border transition-all ${
@@ -717,9 +730,9 @@ export const CheckoutPage: React.FC = () => {
                         </label>
                       </div>
 
-                      {useCoffeePoints && calculation && calculation.coffeePointsRedeemed > 0 && (
+                      {useCoffeePoints && coffeeDiscount > 0 && (
                         <span className="text-xs font-extrabold text-amber-800 whitespace-nowrap bg-amber-100 px-2.5 py-1 rounded-lg">
-                          -₹{(calculation.coffeePointsRedeemed * pointValueRate).toFixed(2)}
+                          -₹{coffeeDiscount.toFixed(2)}
                         </span>
                       )}
                     </div>
@@ -808,16 +821,30 @@ export const CheckoutPage: React.FC = () => {
                 </div>
 
                 {foodSubtotal > 0 && (
-                  <div className="flex justify-between text-[11px] text-stone-400 pl-2">
+                  <div className="flex justify-between text-[11px] text-stone-600 pl-2">
                     <span>🍔 Food items</span>
-                    <span>₹{foodSubtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-stone-900">₹{foodSubtotal.toFixed(2)}</span>
                   </div>
                 )}
 
                 {coffeeSubtotal > 0 && (
-                  <div className="flex justify-between text-[11px] text-stone-400 pl-2">
+                  <div className="flex justify-between text-[11px] text-stone-600 pl-2">
                     <span>☕ Coffee & beverages</span>
-                    <span>₹{coffeeSubtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-stone-900">₹{coffeeSubtotal.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {coffeeDiscount > 0 && (
+                  <div className="flex justify-between text-amber-800 font-bold pl-2 bg-amber-50/80 py-1 rounded-lg px-2">
+                    <span>↳ Coffee Points Redeemed ({calculation?.coffeePointsRedeemed || redeemCoffeePoints} Pts)</span>
+                    <span>-₹{coffeeDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {foodDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-800 font-bold pl-2 bg-emerald-50/80 py-1 rounded-lg px-2">
+                    <span>↳ Food Points Redeemed ({calculation?.foodPointsRedeemed || redeemFoodPoints} Pts)</span>
+                    <span>-₹{foodDiscount.toFixed(2)}</span>
                   </div>
                 )}
 
@@ -825,20 +852,6 @@ export const CheckoutPage: React.FC = () => {
                   <div className="flex justify-between text-emerald-700 font-semibold">
                     <span>Coupon Discount</span>
                     <span>-₹{couponDiscount.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {calculation && calculation.foodPointsRedeemed > 0 && (
-                  <div className="flex justify-between text-emerald-800 font-semibold">
-                    <span>Food Points Redeemed ({calculation.foodPointsRedeemed} Pts)</span>
-                    <span>-₹{calculation.foodPointsRedeemed.toFixed(2)}</span>
-                  </div>
-                )}
-
-                {calculation && calculation.coffeePointsRedeemed > 0 && (
-                  <div className="flex justify-between text-amber-800 font-semibold">
-                    <span>Coffee Points Redeemed ({calculation.coffeePointsRedeemed} Pts)</span>
-                    <span>-₹{calculation.coffeePointsRedeemed.toFixed(2)}</span>
                   </div>
                 )}
 
@@ -859,12 +872,14 @@ export const CheckoutPage: React.FC = () => {
                   <Sparkles className="w-3.5 h-3.5 text-nature-700" />
                   <span>Points You'll Earn:</span>
                 </div>
+                {isFoodLoyaltyVisible && (
+                  <div className="flex justify-between text-nature-800 font-medium pl-5">
+                    <span>🍔 Food Loyalty Points:</span>
+                    <span className="font-bold">+{foodPointsEarned} Pts</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-nature-800 font-medium pl-5">
-                  <span>🍔 Food Loyalty Points:</span>
-                  <span className="font-bold">+{foodPointsEarned} Pts</span>
-                </div>
-                <div className="flex justify-between text-nature-800 font-medium pl-5">
-                  <span>☕ Coffee Loyalty Points:</span>
+                  <span>☕ Coffee Rewards ({coffeeEarnPercent}%):</span>
                   <span className="font-bold">+{coffeePointsEarned} Pts</span>
                 </div>
               </div>

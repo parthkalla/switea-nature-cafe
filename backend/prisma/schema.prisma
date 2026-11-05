@@ -59,6 +59,8 @@ model Restaurant {
   loyaltyPerOrderPoints      Int      @default(0)
   loyaltyFoodSpendPerPoint   Float    @default(10.0)
   loyaltyCoffeeSpendPerPoint Float    @default(10.0)
+  loyaltyFoodPercent         Float    @default(0.0)
+  loyaltyCoffeePercent       Float    @default(15.0)
   loyaltyPointValue          Float    @default(1.0)
   loyaltyMinOrderAmount      Float    @default(0.0)
   loyaltyMinRedeemPoints     Int      @default(0)

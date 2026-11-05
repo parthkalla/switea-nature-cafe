@@ -170,10 +170,16 @@ export const AdminPOS: React.FC = () => {
 
   const actualFoodRedeemed = useFoodPoints ? maxRedeemableFood : 0;
   const actualCoffeeRedeemed = useCoffeePoints ? maxRedeemableCoffee : 0;
-  const loyaltyDiscount = Number(((actualFoodRedeemed + actualCoffeeRedeemed) * pointValueRate).toFixed(2));
+
+  // Strict separation: coffee discount deducts coffee only, food deducts food only
+  const foodDiscount = Number(Math.min(foodSubtotal, actualFoodRedeemed * pointValueRate).toFixed(2));
+  const coffeeDiscount = Number(Math.min(coffeeSubtotal, actualCoffeeRedeemed * pointValueRate).toFixed(2));
+  const loyaltyDiscount = Number((foodDiscount + coffeeDiscount).toFixed(2));
 
   const taxPercent = (tenantRestaurant as any)?.taxPercent || 5.0;
-  const discountedSubtotal = Math.max(0, subtotal - loyaltyDiscount);
+  const discountedFoodSubtotal = Number(Math.max(0, foodSubtotal - foodDiscount).toFixed(2));
+  const discountedCoffeeSubtotal = Number(Math.max(0, coffeeSubtotal - coffeeDiscount).toFixed(2));
+  const discountedSubtotal = Math.max(0, discountedFoodSubtotal + discountedCoffeeSubtotal);
   const taxAmount = Number(((discountedSubtotal * taxPercent) / 100).toFixed(2));
   const grandTotal = Number((discountedSubtotal + taxAmount).toFixed(2));
 
@@ -716,8 +722,14 @@ export const AdminPOS: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-amber-900">
-                  <span>🍔 Food: {loyaltyData.foodPoints} pts</span>
-                  <span>☕ Coffee: {loyaltyData.coffeePoints} pts</span>
+                  {loyaltyData.foodPoints > 0 ? (
+                    <>
+                      <span>🍔 Food: {loyaltyData.foodPoints} pts</span>
+                      <span>☕ Coffee: {loyaltyData.coffeePoints} pts</span>
+                    </>
+                  ) : (
+                    <span>☕ Coffee Rewards Balance: {loyaltyData.coffeePoints} pts</span>
+                  )}
                 </div>
 
                 {/* Minimum threshold check */}
@@ -735,7 +747,7 @@ export const AdminPOS: React.FC = () => {
                           onChange={(e) => setUseFoodPoints(e.target.checked)}
                           className="w-3.5 h-3.5 text-emerald-600 rounded"
                         />
-                        <span>Redeem Food (-₹{maxRedeemableFood})</span>
+                        <span>Redeem Food (-₹{foodDiscount > 0 ? foodDiscount : maxRedeemableFood})</span>
                       </label>
                     )}
 
@@ -747,7 +759,7 @@ export const AdminPOS: React.FC = () => {
                           onChange={(e) => setUseCoffeePoints(e.target.checked)}
                           className="w-3.5 h-3.5 text-amber-600 rounded"
                         />
-                        <span>Redeem Coffee (-₹{maxRedeemableCoffee})</span>
+                        <span>Redeem Coffee (-₹{coffeeDiscount > 0 ? coffeeDiscount : maxRedeemableCoffee})</span>
                       </label>
                     )}
                   </div>
@@ -895,10 +907,28 @@ export const AdminPOS: React.FC = () => {
                 <span>Items Subtotal:</span>
                 <span className="font-semibold text-stone-900">₹{subtotal.toFixed(2)}</span>
               </div>
-              {loyaltyDiscount > 0 && (
-                <div className="flex justify-between text-emerald-700 font-semibold">
-                  <span>Loyalty Discount:</span>
-                  <span>-₹{loyaltyDiscount.toFixed(2)}</span>
+              {foodSubtotal > 0 && (
+                <div className="flex justify-between text-[11px] text-stone-500 pl-2">
+                  <span>🍔 Food subtotal:</span>
+                  <span className="font-medium text-stone-800">₹{foodSubtotal.toFixed(2)}</span>
+                </div>
+              )}
+              {coffeeSubtotal > 0 && (
+                <div className="flex justify-between text-[11px] text-stone-500 pl-2">
+                  <span>☕ Coffee/Beverages:</span>
+                  <span className="font-medium text-stone-800">₹{coffeeSubtotal.toFixed(2)}</span>
+                </div>
+              )}
+              {coffeeDiscount > 0 && (
+                <div className="flex justify-between text-amber-800 font-bold pl-2 bg-amber-50/70 py-0.5 rounded px-1">
+                  <span>↳ Coffee Points Discount:</span>
+                  <span>-₹{coffeeDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {foodDiscount > 0 && (
+                <div className="flex justify-between text-emerald-800 font-bold pl-2 bg-emerald-50/70 py-0.5 rounded px-1">
+                  <span>↳ Food Points Discount:</span>
+                  <span>-₹{foodDiscount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-stone-500 text-[11px]">

@@ -32,6 +32,8 @@ export interface Restaurant {
   loyaltyPerOrderPoints?: number;
   loyaltyFoodSpendPerPoint?: number;
   loyaltyCoffeeSpendPerPoint?: number;
+  loyaltyFoodPercent?: number;
+  loyaltyCoffeePercent?: number;
   loyaltyPointValue?: number;
   loyaltyMinOrderAmount?: number;
   loyaltyMinRedeemPoints?: number;
@@ -254,6 +256,12 @@ export interface CartCalculation {
   maxRedeemableCoffeePoints: number;
   foodPointsRedeemed: number;
   coffeePointsRedeemed: number;
+  foodDiscount?: number;
+  coffeeDiscount?: number;
+  discountedFoodSubtotal?: number;
+  discountedCoffeeSubtotal?: number;
+  foodEarnPercent?: number;
+  coffeeEarnPercent?: number;
   loyaltyDiscount: number;
   discountAmount: number;
   discount?: { code: string; amount: number; value: number; type: string } | null;

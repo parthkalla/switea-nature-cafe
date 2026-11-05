@@ -1915,6 +1915,8 @@ export async function getLoyaltySettings(req: Request, res: Response) {
         loyaltyPerOrderPoints: true,
         loyaltyFoodSpendPerPoint: true,
         loyaltyCoffeeSpendPerPoint: true,
+        loyaltyFoodPercent: true,
+        loyaltyCoffeePercent: true,
         loyaltyPointValue: true,
         loyaltyMinOrderAmount: true,
         loyaltyMinRedeemPoints: true,
@@ -1993,6 +1995,8 @@ export async function updateLoyaltySettings(req: Request, res: Response) {
       loyaltyPerOrderPoints,
       loyaltyFoodSpendPerPoint,
       loyaltyCoffeeSpendPerPoint,
+      loyaltyFoodPercent,
+      loyaltyCoffeePercent,
       loyaltyPointValue,
       loyaltyMinOrderAmount,
       loyaltyMinRedeemPoints,
@@ -2005,6 +2009,8 @@ export async function updateLoyaltySettings(req: Request, res: Response) {
         loyaltyPerOrderPoints: loyaltyPerOrderPoints !== undefined ? Math.max(0, parseInt(String(loyaltyPerOrderPoints), 10) || 0) : undefined,
         loyaltyFoodSpendPerPoint: loyaltyFoodSpendPerPoint !== undefined ? Math.max(0.1, parseFloat(String(loyaltyFoodSpendPerPoint)) || 10.0) : undefined,
         loyaltyCoffeeSpendPerPoint: loyaltyCoffeeSpendPerPoint !== undefined ? Math.max(0.1, parseFloat(String(loyaltyCoffeeSpendPerPoint)) || 10.0) : undefined,
+        loyaltyFoodPercent: loyaltyFoodPercent !== undefined ? Math.max(0, parseFloat(String(loyaltyFoodPercent)) || 0) : undefined,
+        loyaltyCoffeePercent: loyaltyCoffeePercent !== undefined ? Math.max(0, parseFloat(String(loyaltyCoffeePercent)) || 0) : undefined,
         loyaltyPointValue: loyaltyPointValue !== undefined ? Math.max(0.01, parseFloat(String(loyaltyPointValue)) || 1.0) : undefined,
         loyaltyMinOrderAmount: loyaltyMinOrderAmount !== undefined ? Math.max(0, parseFloat(String(loyaltyMinOrderAmount)) || 0) : undefined,
         loyaltyMinRedeemPoints: loyaltyMinRedeemPoints !== undefined ? Math.max(0, parseInt(String(loyaltyMinRedeemPoints), 10) || 0) : undefined,
@@ -2017,6 +2023,8 @@ export async function updateLoyaltySettings(req: Request, res: Response) {
         loyaltyPerOrderPoints: true,
         loyaltyFoodSpendPerPoint: true,
         loyaltyCoffeeSpendPerPoint: true,
+        loyaltyFoodPercent: true,
+        loyaltyCoffeePercent: true,
         loyaltyPointValue: true,
         loyaltyMinOrderAmount: true,
         loyaltyMinRedeemPoints: true,
@@ -2297,20 +2305,24 @@ export async function createAdminPosOrder(req: Request, res: Response) {
     }
 
     const isLoyaltyActive = restaurant.isLoyaltyEnabled !== false;
-    const foodSpendRate = restaurant.loyaltyFoodSpendPerPoint || 10.0;
-    const coffeeSpendRate = restaurant.loyaltyCoffeeSpendPerPoint || 10.0;
+    const foodPercent = (restaurant as any).loyaltyFoodPercent !== undefined ? (restaurant as any).loyaltyFoodPercent : 0.0;
+    const coffeePercent = (restaurant as any).loyaltyCoffeePercent !== undefined ? (restaurant as any).loyaltyCoffeePercent : 15.0;
     const pointValue = restaurant.loyaltyPointValue || 1.0;
     const minOrderAmt = restaurant.loyaltyMinOrderAmount || 0;
     const perOrderBonus = restaurant.loyaltyPerOrderPoints || 0;
 
-    const loyaltyDiscount = Number(((actualFoodRedeemed + actualCoffeeRedeemed) * pointValue).toFixed(2));
+    // Strict item-specific discount separation:
+    // Coffee points can only deduct up to coffeeSubtotal, food points up to foodSubtotal
+    const foodDiscount = Number(Math.min(foodSubtotal, actualFoodRedeemed * pointValue).toFixed(2));
+    const coffeeDiscount = Number(Math.min(coffeeSubtotal, actualCoffeeRedeemed * pointValue).toFixed(2));
+    const loyaltyDiscount = Number((foodDiscount + coffeeDiscount).toFixed(2));
 
     let foodPointsEarned = 0;
     let coffeePointsEarned = 0;
 
     if (isLoyaltyActive) {
-      const spendFoodPoints = Math.floor(eligibleFoodSpend / foodSpendRate);
-      const spendCoffeePoints = Math.floor(eligibleCoffeeSpend / coffeeSpendRate);
+      const spendFoodPoints = foodPercent > 0 ? Math.floor((eligibleFoodSpend * foodPercent) / 100) : 0;
+      const spendCoffeePoints = coffeePercent > 0 ? Math.floor((eligibleCoffeeSpend * coffeePercent) / 100) : 0;
 
       foodPointsEarned = itemSpecificFoodPoints + spendFoodPoints;
       coffeePointsEarned = itemSpecificCoffeePoints + spendCoffeePoints;
@@ -2320,7 +2332,9 @@ export async function createAdminPosOrder(req: Request, res: Response) {
       }
     }
 
-    const discountedSubtotal = Math.max(0, subtotal - loyaltyDiscount);
+    const discountedFoodSubtotal = Number(Math.max(0, foodSubtotal - foodDiscount).toFixed(2));
+    const discountedCoffeeSubtotal = Number(Math.max(0, coffeeSubtotal - coffeeDiscount).toFixed(2));
+    const discountedSubtotal = Math.max(0, discountedFoodSubtotal + discountedCoffeeSubtotal);
     const taxAmount = Number(((discountedSubtotal * restaurant.taxPercent) / 100).toFixed(2));
     const totalAmount = Number((discountedSubtotal + taxAmount).toFixed(2));
 

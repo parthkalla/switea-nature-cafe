@@ -127,6 +127,8 @@ export async function getMenu(req: Request, res: Response) {
         loyaltyPerOrderPoints: true,
         loyaltyFoodSpendPerPoint: true,
         loyaltyCoffeeSpendPerPoint: true,
+        loyaltyFoodPercent: true,
+        loyaltyCoffeePercent: true,
         loyaltyPointValue: true,
         loyaltyMinOrderAmount: true,
         loyaltyMinRedeemPoints: true,
@@ -380,6 +382,8 @@ export async function getLoyaltyBalance(req: Request, res: Response) {
         loyaltyPerOrderPoints: true,
         loyaltyFoodSpendPerPoint: true,
         loyaltyCoffeeSpendPerPoint: true,
+        loyaltyFoodPercent: true,
+        loyaltyCoffeePercent: true,
         loyaltyPointValue: true,
         loyaltyMinOrderAmount: true,
         loyaltyMinRedeemPoints: true,
@@ -394,6 +398,9 @@ export async function getLoyaltyBalance(req: Request, res: Response) {
       where: { restaurantId: restaurant.id, customerPhone: { in: phoneVariants(phone) } },
     });
 
+    const foodPercent = restaurant.loyaltyFoodPercent !== undefined ? restaurant.loyaltyFoodPercent : 0.0;
+    const coffeePercent = restaurant.loyaltyCoffeePercent !== undefined ? restaurant.loyaltyCoffeePercent : 15.0;
+
     return res.json({
       phone,
       name: loyalty?.customerName || null,
@@ -404,8 +411,10 @@ export async function getLoyaltyBalance(req: Request, res: Response) {
       foodPointsValue: (loyalty?.foodPoints || 0) * (restaurant.loyaltyPointValue || 1.0),
       coffeePointsValue: (loyalty?.coffeePoints || 0) * (restaurant.loyaltyPointValue || 1.0),
       earnRate: {
-        food: `1 Food Point per ₹${restaurant.loyaltyFoodSpendPerPoint || 10} spent on Food`,
-        coffee: `1 Coffee Point per ₹${restaurant.loyaltyCoffeeSpendPerPoint || 10} spent on Coffee/Beverages`,
+        food: foodPercent > 0 ? `${foodPercent}% Cashback on Food` : 'No points on Food (0%)',
+        coffee: `${coffeePercent}% Cashback on Coffee/Beverages`,
+        foodPercent,
+        coffeePercent,
         perOrderBonus: restaurant.loyaltyPerOrderPoints || 0,
         pointValue: restaurant.loyaltyPointValue || 1.0,
         minOrderAmount: restaurant.loyaltyMinOrderAmount || 0,
@@ -610,15 +619,15 @@ export async function calculateCart(req: Request, res: Response) {
     let potentialCoffeePoints = 0;
 
     const isLoyaltyActive = (restaurant as any).isLoyaltyEnabled !== false;
-    const foodSpendRate = (restaurant as any).loyaltyFoodSpendPerPoint || 10.0;
-    const coffeeSpendRate = (restaurant as any).loyaltyCoffeeSpendPerPoint || 10.0;
+    const foodPercent = (restaurant as any).loyaltyFoodPercent !== undefined ? (restaurant as any).loyaltyFoodPercent : 0.0;
+    const coffeePercent = (restaurant as any).loyaltyCoffeePercent !== undefined ? (restaurant as any).loyaltyCoffeePercent : 15.0;
     const pointValue = (restaurant as any).loyaltyPointValue || 1.0;
     const minOrderAmt = (restaurant as any).loyaltyMinOrderAmount || 0;
     const perOrderBonus = (restaurant as any).loyaltyPerOrderPoints || 0;
 
     if (isLoyaltyActive) {
-      const spendFoodPoints = Math.floor(eligibleFoodSpend / foodSpendRate);
-      const spendCoffeePoints = Math.floor(eligibleCoffeeSpend / coffeeSpendRate);
+      const spendFoodPoints = foodPercent > 0 ? Math.floor((eligibleFoodSpend * foodPercent) / 100) : 0;
+      const spendCoffeePoints = coffeePercent > 0 ? Math.floor((eligibleCoffeeSpend * coffeePercent) / 100) : 0;
 
       potentialFoodPoints = itemSpecificFoodPoints + spendFoodPoints;
       potentialCoffeePoints = itemSpecificCoffeePoints + spendCoffeePoints;
@@ -666,11 +675,15 @@ export async function calculateCart(req: Request, res: Response) {
       coffeePointsRedeemed = Math.min(Number(redeemCoffeePoints), maxRedeemableCoffeePoints);
     }
 
-    // 1 point = ₹pointValue discount
-    const loyaltyDiscount = Number(((foodPointsRedeemed + coffeePointsRedeemed) * pointValue).toFixed(2));
+    // Strict item-specific discount separation:
+    // Coffee points deduct ONLY coffeeSubtotal, Food points deduct ONLY foodSubtotal
+    const foodDiscount = Number(Math.min(foodSubtotal, foodPointsRedeemed * pointValue).toFixed(2));
+    const coffeeDiscount = Number(Math.min(coffeeSubtotal, coffeePointsRedeemed * pointValue).toFixed(2));
+    const loyaltyDiscount = Number((foodDiscount + coffeeDiscount).toFixed(2));
 
-    const totalDeductions = discountAmount + loyaltyDiscount;
-    const discountedSubtotal = Math.max(0, subtotal - totalDeductions);
+    const discountedFoodSubtotal = Number(Math.max(0, foodSubtotal - foodDiscount).toFixed(2));
+    const discountedCoffeeSubtotal = Number(Math.max(0, coffeeSubtotal - coffeeDiscount).toFixed(2));
+    const discountedSubtotal = Math.max(0, discountedFoodSubtotal + discountedCoffeeSubtotal - discountAmount);
     const taxAmount = Number(((discountedSubtotal * restaurant.taxPercent) / 100).toFixed(2));
     const totalAmount = Number((discountedSubtotal + taxAmount).toFixed(2));
 
@@ -678,6 +691,12 @@ export async function calculateCart(req: Request, res: Response) {
       subtotal: Number(subtotal.toFixed(2)),
       foodSubtotal: Number(foodSubtotal.toFixed(2)),
       coffeeSubtotal: Number(coffeeSubtotal.toFixed(2)),
+      foodDiscount,
+      coffeeDiscount,
+      discountedFoodSubtotal,
+      discountedCoffeeSubtotal,
+      foodEarnPercent: foodPercent,
+      coffeeEarnPercent: coffeePercent,
       potentialFoodPoints,
       potentialCoffeePoints,
       availableFoodPoints,
@@ -957,21 +976,24 @@ export async function createOrder(req: Request, res: Response) {
     }
 
     const isLoyaltyActive = (restaurant as any).isLoyaltyEnabled !== false;
-    const foodSpendRate = (restaurant as any).loyaltyFoodSpendPerPoint || 10.0;
-    const coffeeSpendRate = (restaurant as any).loyaltyCoffeeSpendPerPoint || 10.0;
+    const foodPercent = (restaurant as any).loyaltyFoodPercent !== undefined ? (restaurant as any).loyaltyFoodPercent : 0.0;
+    const coffeePercent = (restaurant as any).loyaltyCoffeePercent !== undefined ? (restaurant as any).loyaltyCoffeePercent : 15.0;
     const pointValue = (restaurant as any).loyaltyPointValue || 1.0;
     const minOrderAmt = (restaurant as any).loyaltyMinOrderAmount || 0;
     const perOrderBonus = (restaurant as any).loyaltyPerOrderPoints || 0;
 
-    // Point = ₹pointValue discount
-    const loyaltyDiscount = Number(((actualFoodRedeemed + actualCoffeeRedeemed) * pointValue).toFixed(2));
+    // Strict item-specific discount separation:
+    // Coffee points can only deduct up to coffeeSubtotal, Food points up to foodSubtotal
+    const foodDiscount = Number(Math.min(foodSubtotal, actualFoodRedeemed * pointValue).toFixed(2));
+    const coffeeDiscount = Number(Math.min(coffeeSubtotal, actualCoffeeRedeemed * pointValue).toFixed(2));
+    const loyaltyDiscount = Number((foodDiscount + coffeeDiscount).toFixed(2));
 
     let foodPointsEarned = 0;
     let coffeePointsEarned = 0;
 
     if (isLoyaltyActive) {
-      const spendFoodPoints = Math.floor(eligibleFoodSpend / foodSpendRate);
-      const spendCoffeePoints = Math.floor(eligibleCoffeeSpend / coffeeSpendRate);
+      const spendFoodPoints = foodPercent > 0 ? Math.floor((eligibleFoodSpend * foodPercent) / 100) : 0;
+      const spendCoffeePoints = coffeePercent > 0 ? Math.floor((eligibleCoffeeSpend * coffeePercent) / 100) : 0;
 
       foodPointsEarned = itemSpecificFoodPoints + spendFoodPoints;
       coffeePointsEarned = itemSpecificCoffeePoints + spendCoffeePoints;
@@ -981,7 +1003,9 @@ export async function createOrder(req: Request, res: Response) {
       }
     }
 
-    const discountedSubtotal = Math.max(0, subtotal - discountAmount - loyaltyDiscount);
+    const discountedFoodSubtotal = Number(Math.max(0, foodSubtotal - foodDiscount).toFixed(2));
+    const discountedCoffeeSubtotal = Number(Math.max(0, coffeeSubtotal - coffeeDiscount).toFixed(2));
+    const discountedSubtotal = Math.max(0, discountedFoodSubtotal + discountedCoffeeSubtotal - discountAmount);
     const taxAmount = Number(((discountedSubtotal * restaurant.taxPercent) / 100).toFixed(2));
     const totalAmount = Number((discountedSubtotal + taxAmount).toFixed(2));
 

@@ -550,7 +550,13 @@ export const OrderStatusPage: React.FC = () => {
             {(order.foodPointsEarned || order.coffeePointsEarned) ? (
               <div className="mt-2.5 inline-flex items-center gap-2 bg-white/90 border border-amber-200 text-amber-900 text-xs font-semibold px-3 py-1 rounded-xl shadow-2xs">
                 <Gift className="w-3.5 h-3.5 text-amber-600" />
-                <span>Loyalty Added: +{order.foodPointsEarned || 0} Food Points · +{order.coffeePointsEarned || 0} Coffee Points</span>
+                <span>
+                  {order.foodPointsEarned && order.foodPointsEarned > 0 ? (
+                    <>Loyalty Added: +{order.foodPointsEarned} Food Points · +{order.coffeePointsEarned || 0} Coffee Points</>
+                  ) : (
+                    <>Coffee Rewards Added: +{order.coffeePointsEarned || 0} Coffee Points</>
+                  )}
+                </span>
               </div>
             ) : null}
 
@@ -868,7 +874,7 @@ export const OrderStatusPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Dual Loyalty Earned Banner */}
+          {/* Dual / Coffee Loyalty Earned Banner */}
           {((order.foodPointsEarned && order.foodPointsEarned > 0) || (order.coffeePointsEarned && order.coffeePointsEarned > 0)) && (
             <div className="mt-4 p-4 bg-gradient-to-br from-amber-50 to-emerald-50 border border-amber-200 rounded-2xl">
               <div className="flex items-center gap-2 mb-2">
@@ -877,11 +883,13 @@ export const OrderStatusPage: React.FC = () => {
                   Loyalty Points Rewarded on this Order
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-2.5 bg-white/90 rounded-xl border border-emerald-200">
-                  <span className="text-stone-500 text-[11px] block">🍔 Food Points</span>
-                  <span className="text-sm font-extrabold text-emerald-800">+{order.foodPointsEarned || 0} Pts</span>
-                </div>
+              <div className={`grid ${order.foodPointsEarned && order.foodPointsEarned > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-3 text-xs`}>
+                {order.foodPointsEarned && order.foodPointsEarned > 0 ? (
+                  <div className="p-2.5 bg-white/90 rounded-xl border border-emerald-200">
+                    <span className="text-stone-500 text-[11px] block">🍔 Food Points</span>
+                    <span className="text-sm font-extrabold text-emerald-800">+{order.foodPointsEarned} Pts</span>
+                  </div>
+                ) : null}
                 <div className="p-2.5 bg-white/90 rounded-xl border border-amber-200">
                   <span className="text-stone-500 text-[11px] block">☕ Coffee Points</span>
                   <span className="text-sm font-extrabold text-amber-800">+{order.coffeePointsEarned || 0} Pts</span>
@@ -891,7 +899,11 @@ export const OrderStatusPage: React.FC = () => {
                 <div className="mt-2.5 pt-2 border-t border-amber-200/60 flex items-center justify-between text-[11px] text-stone-600">
                   <span>Current Total Balance:</span>
                   <span className="font-bold text-nature-950">
-                    🍔 {order.customerLoyalty.foodPoints} Food Pts &nbsp;|&nbsp; ☕ {order.customerLoyalty.coffeePoints} Coffee Pts
+                    {order.customerLoyalty.foodPoints > 0 ? (
+                      <>🍔 {order.customerLoyalty.foodPoints} Food Pts &nbsp;|&nbsp; ☕ {order.customerLoyalty.coffeePoints} Coffee Pts</>
+                    ) : (
+                      <>☕ {order.customerLoyalty.coffeePoints} Coffee Pts</>
+                    )}
                   </span>
                 </div>
               )}
